@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import Timer from './Timer';
-import Question from './Question';
-import Proctoring from './Proctoring';
+import Timer from '../components/Timer';
+import Question from '../components/Question';
+import Proctoring from '../components/Proctoring';
 
 const TestInterface = () => {
   const { sessionToken } = useParams();
@@ -27,7 +27,7 @@ const TestInterface = () => {
     try {
       const response = await axios.get('http://localhost:8080/api/v1/test-sessions/info', {
         params: { sessionToken },
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` }
       });
 
       setSessionInfo(response.data);
@@ -35,7 +35,7 @@ const TestInterface = () => {
       // Fetch assessment details with questions
       const assessmentRes = await axios.get(
         `http://localhost:8080/api/v1/assessments/${response.data.assessmentId}`,
-        { headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` } }
+        { headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` } }
       );
 
       setQuestions(assessmentRes.data.questions || []);
@@ -65,15 +65,20 @@ const TestInterface = () => {
   };
 
   const submitAnswer = async (questionId, answer) => {
+    console.log({
+      sessionToken,
+      questionId,
+      answerText: answer
+    });
     try {
       const question = questions.find(q => q.id === questionId);
       await axios.post('http://localhost:8080/api/v1/submissions', {
+        sessionToken,
         questionId,
         answerText: answer,
         codeSubmitted: question.type === 'CODING' ? answer : null
       }, {
-        params: { sessionToken, questionId },
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` }
       });
     } catch (error) {
       console.error('Failed to save answer:', error);
@@ -92,12 +97,11 @@ const TestInterface = () => {
         {},
         {
           params: { sessionToken },
-          headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+          headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` }
         }
       );
 
-      // Redirect to results page
-      navigate(`/assessment/results/${sessionInfo.sessionId}`);
+      navigate('/dashboard');
     } catch (error) {
       console.error('Failed to submit test:', error);
       alert('Failed to submit test. Please try again.');
@@ -123,7 +127,7 @@ const TestInterface = () => {
         severityScore: severity,
         metadata: JSON.stringify(metadata)
       }, {
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` }
       });
     } catch (error) {
       console.error('Failed to log proctoring event:', error);

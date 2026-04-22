@@ -4,9 +4,9 @@ import Button from '../../../components/common/Button';
 import Input from '../../../components/common/Input';
 import ApplicantCard from '../components/ApplicantCard';
 import RecruiterLayout from '../components/RecruiterLayout';
-import { recruiterService, applicationService } from '../../../services';
+import { recruiterService, applicationService, assessmentService } from '../../../services';
 
-const statusOptions = ['ALL', 'APPLIED', 'SHORTLISTED', 'REJECTED', 'HIRED'];
+const statusOptions = ['ALL', 'APPLIED', 'SHORTLISTED', 'ASSESSMENT', 'INTERVIEW', 'HIRED', 'REJECTED'];
 
 const Applicants = () => {
   const [jobs, setJobs] = useState([]);
@@ -16,6 +16,7 @@ const Applicants = () => {
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [assessmentMap, setAssessmentMap] = useState({});
 
   useEffect(() => {
     const loadJobs = async () => {
@@ -52,6 +53,25 @@ const Applicants = () => {
     loadApplications();
   }, [selectedJobId]);
 
+  useEffect(() => {
+    if (!selectedJobId) return;
+
+    const loadAssessments = async () => {
+      try {
+        const response = await assessmentService.getAssessmentsForJob(selectedJobId);
+        const assessments = response.data || [];
+        setAssessmentMap((current) => ({
+          ...current,
+          [selectedJobId]: assessments,
+        }));
+      } catch (err) {
+        console.error('Unable to load assessments for job:', err);
+      }
+    };
+
+    loadAssessments();
+  }, [selectedJobId]);
+
   const filteredApplications = useMemo(() => {
     const query = search.trim().toLowerCase();
     return applications.filter((application) => {
@@ -66,14 +86,29 @@ const Applicants = () => {
   }, [applications, search, statusFilter]);
 
   const handleStatusChange = async (applicationId, status) => {
+    console.log('Status change:', { applicationId, status, type: typeof status }); // DEBUG LOG
     if (status === 'ALL') return;
     try {
-      await applicationService.updateStatus(applicationId, status);
+      let response;
+      if (status === 'ASSESSMENT') {
+        const application = applications.find((item) => item.id === applicationId);
+        const assessmentId = assessmentMap[selectedJobId]?.[0]?.id;
+        console.log('Assign assessment:', { selectedJobId, applicationId: application.userId, assessmentId }); // DEBUG
+        response = await applicationService.assignAssessment(selectedJobId, application.userId, assessmentId);
+      } else {
+        console.log('Update status:', { applicationId, status }); // DEBUG
+        response = await applicationService.updateStatus(applicationId, status);
+      }
+
+      const updatedApplication = response.data?.data;
       setApplications((current) =>
-        current.map((item) => (item.id === applicationId ? { ...item, status } : item))
+        current.map((item) => (item.id === applicationId ? { ...item, ...updatedApplication } : item))
       );
+      setError('');
     } catch (err) {
       console.error('Unable to update status:', err);
+      console.error('Status value that failed:', status, 'Type:', typeof status);
+      setError(err.response?.data?.message || 'Unable to update status.');
     }
   };
 
@@ -150,6 +185,7 @@ const Applicants = () => {
               key={application.id}
               application={application}
               onStatusChange={handleStatusChange}
+              hasAssessment={Boolean(assessmentMap[selectedJobId]?.length)}
             />
           ))}
         </div>

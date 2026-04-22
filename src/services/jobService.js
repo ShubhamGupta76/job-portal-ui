@@ -20,6 +20,9 @@ export const jobService = {
   deleteJob: (jobId) =>
     apiClient.delete(`/jobs/${jobId}`),
 
+  getMyJobs: () =>
+    apiClient.get('/jobs/my-jobs'),
+
   applyJob: (applicationData) => {
     const formData = new FormData();
     formData.append('jobId', applicationData.jobId);
@@ -53,3 +56,4 @@ export const jobService = {
   getSearchSuggestions: (keyword) =>
     apiClient.get('/jobs/suggestions', { params: { keyword } }),
 };
+

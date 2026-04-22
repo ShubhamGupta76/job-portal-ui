@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
-import RecruiterLayout from '../components/RecruiterLayout';
-import RecruiterNavbar from '../components/RecruiterNavbar';
+import { assessmentService } from '../../../services/assessmentService';
+import { jobService } from '../../../services/jobService';
+import RecruiterLayout from '../../recruiter/components/RecruiterLayout';
+import RecruiterNavbar from '../../recruiter/components/RecruiterNavbar';
 
 const CreateAssessmentPage = () => {
   const navigate = useNavigate();
@@ -22,22 +23,22 @@ const CreateAssessmentPage = () => {
 
   const [jobs, setJobs] = useState([]);
   const [questions, setQuestions] = useState([]);
-  const [newQuestion, setNewQuestion] = useState({
-    type: 'MCQ',
-    title: '',
-    description: '',
-    marks: 5,
-    difficulty: 'MEDIUM',
-    option1: '',
-    option2: '',
-    option3: '',
-    option4: '',
-    correctAnswer: 'option1',
-    explanation: '',
-    codeTemplate: '',
-    programmingLanguage: 'python',
-    testCases: ''
-  });
+    const [newQuestion, setNewQuestion] = useState({
+      type: 'MCQ',
+      title: '',
+      description: '',
+      marks: 5,
+      difficulty: 'MEDIUM',
+      option1: '',
+      option2: '',
+      option3: '',
+      option4: '',
+      correctAnswer: 'option1',
+      explanation: '',
+      codeTemplate: '',
+      programmingLanguage: 'PYTHON',
+      testCases: ''
+    });
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -46,9 +47,7 @@ const CreateAssessmentPage = () => {
 
   const fetchJobs = async () => {
     try {
-      const response = await axios.get('http://localhost:8080/api/v1/jobs/my-jobs', {
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-      });
+      const response = await jobService.getMyJobs();
       setJobs(response.data.data || response.data || []);
     } catch (error) {
       console.error('Failed to fetch jobs:', error);
@@ -96,7 +95,7 @@ const CreateAssessmentPage = () => {
       correctAnswer: 'option1',
       explanation: '',
       codeTemplate: '',
-      programmingLanguage: 'python',
+      programmingLanguage: 'PYTHON',
       testCases: ''
     });
   };
@@ -126,29 +125,20 @@ const CreateAssessmentPage = () => {
     setLoading(true);
     try {
       // Create assessment
-      const assessmentResponse = await axios.post(
-        'http://localhost:8080/api/v1/assessments',
-        formData,
-        { headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` } }
-      );
-
-      const assessmentId = assessmentResponse.data.id;
+      const assessmentResponse = await assessmentService.createAssessment(formData);
+      console.log('Assessment created:', assessmentResponse.data);
+      const assessmentId = assessmentResponse.data.id || assessmentResponse.data.data?.id;
+      if (!assessmentId) {
+        throw new Error('No assessment ID returned');
+      }
 
       // Add questions
       for (const question of questions) {
-        await axios.post(
-          `http://localhost:8080/api/v1/assessments/${assessmentId}/questions`,
-          { ...question, assessmentId },
-          { headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` } }
-        );
+        await assessmentService.addQuestion(assessmentId, question);
       }
 
       // Publish assessment
-      await axios.post(
-        `http://localhost:8080/api/v1/assessments/${assessmentId}/publish`,
-        {},
-        { headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` } }
-      );
+      await assessmentService.publishAssessment(assessmentId);
 
       alert('Assessment created and published successfully!');
       navigate('/recruiter/assessments');
@@ -396,10 +386,10 @@ const CreateAssessmentPage = () => {
                       onChange={handleQuestionChange}
                       className="w-full px-4 py-2 border border-gray-300 rounded"
                     >
-                      <option value="python">Python</option>
-                      <option value="java">Java</option>
-                      <option value="javascript">JavaScript</option>
-                      <option value="cpp">C++</option>
+                      <option value="PYTHON">Python</option>
+                      <option value="JAVA">Java</option>
+                      <option value="JAVASCRIPT">JavaScript</option>
+                      <option value="CPP">C++</option>
                     </select>
                     <textarea
                       name="codeTemplate"

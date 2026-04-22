@@ -30,12 +30,13 @@ const JobsPage = () => {
     minSalary: null,
     maxSalary: null,
   });
+  const availableJobs = Array.isArray(jobContext.jobs) ? jobContext.jobs : [];
 
   // Client-side filtering using jobContext.jobs
   useEffect(() => {
-    if (!jobContext.jobs.length) return;
+    if (!availableJobs.length) return;
     
-    let result = jobContext.jobs;
+    let result = availableJobs;
 
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
@@ -74,10 +75,10 @@ const JobsPage = () => {
         );
       }
     }
-  }, [searchQuery, filters, jobContext.jobs]);
+  }, [searchQuery, filters, availableJobs]);
 
   // Remove duplicate filtering - JobList handles it
-  const filteredJobs = jobContext.jobs;
+  const filteredJobs = availableJobs;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -112,7 +113,7 @@ const JobsPage = () => {
           <div className="min-w-0">
             <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-gray-600">
-                Found <span className="font-bold text-gray-900">{jobContext.jobs.length}</span> jobs
+                Found <span className="font-bold text-gray-900">{filteredJobs.length}</span> jobs
               </p>
             </div>
 
@@ -127,13 +128,13 @@ const JobsPage = () => {
                   Try Again
                 </Button>
               </div>
-            ) : jobContext.jobs.length === 0 ? (
+            ) : !(filteredJobs && filteredJobs.length > 0) ? (
               <div className="rounded-lg border border-gray-200 bg-white py-12 text-center">
                 <p className="mb-4 text-gray-600">No jobs available. Please check back later.</p>
               </div>
             ) : (
               <div className="space-y-5">
-                {jobContext.jobs.slice(0, 8).map((job) => (
+                {filteredJobs.slice(0, 8).map((job) => (
                   <JobCard key={job.id} job={job} />
                 ))}
               </div>

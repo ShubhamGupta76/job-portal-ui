@@ -3,6 +3,9 @@ import { Link } from 'react-router-dom';
 
 const JobCard = ({ job }) => {
   const [isSaved, setIsSaved] = useState(false); // In real app, this would come from API
+  const title = job?.title || 'Untitled role';
+  const companyName = job?.companyName || 'Confidential company';
+  const location = job?.location || 'Remote';
 
   const handleSaveToggle = () => {
     setIsSaved(!isSaved);
@@ -38,12 +41,12 @@ const JobCard = ({ job }) => {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex-1">
           <div className="mb-2">
-            <p className="text-sm text-gray-600">{job.companyName}</p>
-            <h3 className="text-lg font-semibold text-gray-900">{job.title}</h3>
+            <p className="text-sm text-gray-600">{companyName}</p>
+            <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
           </div>
 
           <div className="mb-3 flex flex-wrap gap-4 text-sm text-gray-600">
-            <span>{job.location || 'Remote'}</span>
+            <span>{location}</span>
             <span>{job.jobType || 'Full-time'}</span>
             <span>{formatSalary(job.minSalary, job.maxSalary)}</span>
           </div>

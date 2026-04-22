@@ -4,8 +4,6 @@ import Card from '../../../components/common/Card';
 import Button from '../../../components/common/Button';
 import Input from '../../../components/common/Input';
 import { authService } from '../../../services/authService';
-import { normalizeUserRole } from '../../../utils';
-import { useAuthContext } from '../../../context/useAuthContext';
 
 /**
  * Signup Page
@@ -23,7 +21,6 @@ const SignupPage = () => {
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-  const { login } = useAuthContext();
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -87,7 +84,7 @@ const SignupPage = () => {
 
       const response = await authService.signup(signupData);
       if (response.data.success) {
-        navigate('/otp-verify', { state: { email: formData.email, isLogin: false } });
+        navigate('/otp-verify', { state: { email: formData.email } });
       } else {
         setErrors({ general: response.data.message || 'Registration failed' });
       }

@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import Card from '../../../components/common/Card';
 import Button from '../../../components/common/Button';
 import Badge from '../../../components/common/Badge';
-import { dashboardService, applicationService, bookmarkService, profileService } from '../../../services';
+import { dashboardService, applicationService, bookmarkService, profileService, jobService } from '../../../services';
 
 const CandidateDashboardPage = () => {
   const [activeTab, setActiveTab] = useState('applications');
@@ -11,25 +11,29 @@ const CandidateDashboardPage = () => {
   const [profile, setProfile] = useState(null);
   const [applications, setApplications] = useState([]);
   const [savedJobs, setSavedJobs] = useState([]);
+  const [availableJobs, setAvailableJobs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [resumeLoading, setResumeLoading] = useState(false);
 
   useEffect(() => {
     const loadData = async () => {
       setLoading(true);
       setError('');
       try {
-        const [dashboardRes, profileRes, applicationsRes, savedJobsRes] = await Promise.all([
+        const [dashboardRes, profileRes, applicationsRes, savedJobsRes, jobsRes] = await Promise.all([
           dashboardService.getCandidateDashboard(),
           profileService.getProfile(),
           applicationService.getMyApplications(),
           bookmarkService.getSavedJobs(),
+          jobService.getJobs({ page: 0, size: 5 }),
         ]);
 
         setDashboard(dashboardRes.data?.data);
         setProfile(profileRes.data?.data);
         setApplications(applicationsRes.data?.data || []);
         setSavedJobs(savedJobsRes.data?.data || []);
+        setAvailableJobs(Array.isArray(jobsRes.data?.data) ? jobsRes.data.data : []);
       } catch (err) {
         console.error('Candidate dashboard load error:', err);
         setError(err.response?.data?.message || 'Failed to load your dashboard.');
@@ -55,12 +59,39 @@ const CandidateDashboardPage = () => {
     switch ((status || '').toUpperCase()) {
       case 'SHORTLISTED':
         return 'success';
+      case 'ASSESSMENT':
+        return 'primary';
+      case 'INTERVIEW':
+        return 'warning';
       case 'REJECTED':
         return 'danger';
       case 'HIRED':
         return 'primary';
       default:
         return 'warning';
+    }
+  };
+
+  const handleResumeAction = async (download = false) => {
+    try {
+      setResumeLoading(true);
+      const response = await applicationService.getResume(profile?.id, download);
+      const fileUrl = URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
+
+      if (download) {
+        const link = document.createElement('a');
+        link.href = fileUrl;
+        link.download = 'resume.pdf';
+        link.click();
+      } else {
+        window.open(fileUrl, '_blank', 'noopener,noreferrer');
+      }
+
+      setTimeout(() => URL.revokeObjectURL(fileUrl), 1000);
+    } catch (err) {
+      console.error('Resume action failed:', err);
+    } finally {
+      setResumeLoading(false);
     }
   };
 
@@ -117,6 +148,37 @@ const CandidateDashboardPage = () => {
           </Card>
         </div>
 
+        <Card className="mb-8 p-6">
+          <div className="mb-5 flex items-center justify-between gap-3">
+            <div>
+              <h2 className="text-xl font-semibold text-gray-900">Recent open jobs</h2>
+              <p className="mt-1 text-sm text-gray-500">Live active jobs available for candidates right now.</p>
+            </div>
+            <Link to="/jobs">
+              <Button variant="outline">See all</Button>
+            </Link>
+          </div>
+          {availableJobs.length === 0 ? (
+            <p className="text-sm text-gray-500">No active jobs are available right now.</p>
+          ) : (
+            <div className="space-y-4">
+              {availableJobs.map((job) => (
+                <div key={job.id} className="rounded-xl border border-gray-200 bg-white p-4">
+                  <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                    <div>
+                      <p className="text-lg font-semibold text-gray-900">{job.title}</p>
+                      <p className="text-sm text-gray-500">{job.companyName} • {job.location || 'Remote'}</p>
+                    </div>
+                    <Link to={`/jobs/${job.id}`}>
+                      <Button>View Job</Button>
+                    </Link>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+
         <div className="mb-6 flex flex-wrap gap-3 border-b border-gray-200">
           {[
             ['applications', 'Applications'],
@@ -157,6 +219,13 @@ const CandidateDashboardPage = () => {
                     </div>
                     {application.coverLetter && (
                       <p className="mt-3 text-sm text-gray-600">{application.coverLetter}</p>
+                    )}
+                    {application.status === 'ASSESSMENT' && application.assessmentId && (
+                      <div className="mt-4">
+                        <Link to={`/candidate/assessments?jobId=${application.jobId}&assessmentId=${application.assessmentId}`}>
+                          <Button>Take Assessment</Button>
+                        </Link>
+                      </div>
                     )}
                   </div>
                 ))}
@@ -234,6 +303,12 @@ const CandidateDashboardPage = () => {
                   <Link to="/profile">
                     <Button>Edit Profile</Button>
                   </Link>
+                  <Button variant="outline" loading={resumeLoading} onClick={() => handleResumeAction(false)}>
+                    View Resume
+                  </Button>
+                  <Button variant="outline" loading={resumeLoading} onClick={() => handleResumeAction(true)}>
+                    Download Resume
+                  </Button>
                   <Link to="/notifications">
                     <Button variant="outline">View Notifications</Button>
                   </Link>

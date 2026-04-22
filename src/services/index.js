@@ -7,3 +7,4 @@ export { notificationService } from './notificationService';
 export { dashboardService } from './dashboardService';
 export { profileService } from './profileService';
 export { applicationService } from './applicationService';
+export { assessmentService } from './assessmentService';

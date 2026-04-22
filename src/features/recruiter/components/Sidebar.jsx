@@ -6,6 +6,7 @@ const menuItems = [
   { label: 'Post Job', path: '/recruiter/post-job' },
   { label: 'Manage Jobs', path: '/recruiter/manage-jobs' },
   { label: 'Applicants', path: '/recruiter/applicants' },
+  { label: 'Assessments', path: '/recruiter/assessments' },
   { label: 'Company Profile', path: '/recruiter/company-profile' },
   { label: 'Analytics', path: '/recruiter/analytics' },
 ];

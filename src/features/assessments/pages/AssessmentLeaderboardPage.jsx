@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import axios from 'axios';
-import RecruiterLayout from '../components/RecruiterLayout';
-import RecruiterNavbar from '../components/RecruiterNavbar';
+import RecruiterLayout from '../../recruiter/components/RecruiterLayout';
+import RecruiterNavbar from '../../recruiter/components/RecruiterNavbar';
 
 const AssessmentLeaderboardPage = () => {
   const { assessmentId } = useParams();
@@ -22,7 +22,7 @@ const AssessmentLeaderboardPage = () => {
     try {
       const response = await axios.get(
         `http://localhost:8080/api/v1/results/assessment/${assessmentId}/leaderboard`,
-        { headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` } }
+        { headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` } }
       );
       setLeaderboard(response.data || []);
     } catch (error) {
@@ -36,7 +36,7 @@ const AssessmentLeaderboardPage = () => {
     try {
       const response = await axios.get(
         `http://localhost:8080/api/v1/assessments/${assessmentId}`,
-        { headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` } }
+        { headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` } }
       );
       setAssessment(response.data);
     } catch (error) {
@@ -48,7 +48,7 @@ const AssessmentLeaderboardPage = () => {
     try {
       const response = await axios.get(
         `http://localhost:8080/api/v1/proctoring/${sessionId}/summary`,
-        { headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` } }
+        { headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` } }
       );
       setProctoringData(response.data);
       setShowProctoringReport(true);

@@ -1,199 +1,235 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { useAuthContext } from '../../../context/useAuthContext';
 import Card from '../../../components/common/Card';
 import Button from '../../../components/common/Button';
 import Input from '../../../components/common/Input';
-import Badge from '../../../components/common/Badge';
 import { authService } from '../../../services/authService';
+import { useAuthContext } from '../../../context/useAuthContext';
 import { normalizeUserRole } from '../../../utils';
 
+const OTP_LENGTH = 6;
+
 const OtpVerificationPage = () => {
-  const [otp, setOtp] = useState(['', '', '', '', '', '']);
-  const [timer, setTimer] = useState(300); // 5 minutes
-  const [resendLoading, setResendLoading] = useState(false);
+  const [otp, setOtp] = useState(Array(OTP_LENGTH).fill(''));
   const [loading, setLoading] = useState(false);
+  const [resendLoading, setResendLoading] = useState(false);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
 
   const location = useLocation();
   const navigate = useNavigate();
   const { login } = useAuthContext();
+  const inputRefs = useRef([]);
 
   const email = location.state?.email || '';
-  const isLogin = location.state?.isLogin || false;
+  const otpValue = otp.join('');
 
-  const handleOtpChange = useCallback((value, index) => {
-    if (/[0-9]/.test(value) || value === '') {
-      const newOtp = [...otp];
-      newOtp[index] = value;
-      setOtp(newOtp);
-
-      // Auto focus next
-      if (value && index < 5) {
-        document.getElementById(`otp-${index + 1}`)?.focus();
-      }
+  useEffect(() => {
+    if (!email) {
+      navigate('/signup', { replace: true });
     }
-  }, [otp]);
+  }, [email, navigate]);
 
-  const handleKeyDown = useCallback((e, index) => {
-    if (e.key === 'Backspace' && !otp[index] && index > 0) {
-      document.getElementById(`otp-${index - 1}`)?.focus();
-    } else if (e.key === 'Enter') {
-      handleVerify();
+  const focusInput = (index) => {
+    inputRefs.current[index]?.focus();
+  };
+
+  const handleOtpChange = (value, index) => {
+    if (!/^\d*$/.test(value)) {
+      return;
     }
-  }, [otp]);
 
-  const handlePaste = useCallback((e) => {
-    e.preventDefault();
-    const pastedData = e.clipboardData.getData('text').replace(/\s/g, '').slice(0, 6);
-    const newOtp = pastedData.split('').map((char, i) => char || '');
-    setOtp(newOtp);
-  }, []);
+    const nextOtp = [...otp];
+    const sanitizedValue = value.slice(-1);
+    nextOtp[index] = sanitizedValue;
+    setOtp(nextOtp);
 
-  const handleVerify = async () => {
-    const otpCode = otp.join('');
-    if (otpCode.length !== 6) {
-      setError('Please enter full 6-digit OTP');
+    if (sanitizedValue && index < OTP_LENGTH - 1) {
+      focusInput(index + 1);
+    }
+
+    if (error) {
+      setError('');
+    }
+
+    if (success) {
+      setSuccess('');
+    }
+  };
+
+  const handleKeyDown = (event, index) => {
+    if (event.key === 'Backspace' && !otp[index] && index > 0) {
+      focusInput(index - 1);
+    }
+
+    if (event.key === 'ArrowLeft' && index > 0) {
+      focusInput(index - 1);
+    }
+
+    if (event.key === 'ArrowRight' && index < OTP_LENGTH - 1) {
+      focusInput(index + 1);
+    }
+  };
+
+  const handlePaste = (event) => {
+    event.preventDefault();
+    const pastedOtp = event.clipboardData.getData('text').replace(/\D/g, '').slice(0, OTP_LENGTH);
+
+    if (!pastedOtp) {
+      return;
+    }
+
+    const nextOtp = Array(OTP_LENGTH).fill('');
+    pastedOtp.split('').forEach((digit, index) => {
+      nextOtp[index] = digit;
+    });
+
+    setOtp(nextOtp);
+    focusInput(Math.min(pastedOtp.length, OTP_LENGTH) - 1);
+    setError('');
+    setSuccess('');
+  };
+
+  const handleVerify = async (event) => {
+    event.preventDefault();
+
+    if (!email) {
+      setError('We could not find the email for this verification request.');
+      return;
+    }
+
+    if (otpValue.length !== OTP_LENGTH) {
+      setError('Please enter the complete 6-digit OTP.');
+      setSuccess('');
       return;
     }
 
     setLoading(true);
     setError('');
+    setSuccess('');
 
     try {
-      const response = await authService.verifyOtp(email, otpCode);
-      const userData = response.data.data;
-      const normalizedRole = normalizeUserRole(userData.role);
-      login(userData, userData.token, normalizedRole);
-      navigate(normalizedRole === 'recruiter' ? '/recruiter/dashboard' : '/jobs');
-    } catch (error) {
-      setError(error.response?.data?.message || 'Invalid OTP. Please try again.');
+      const response = await authService.verifyOtp(email, otpValue);
+      const authData = response.data?.data || {};
+      const token = authData.token;
+      const normalizedRole = normalizeUserRole(authData.role);
+
+      if (!token) {
+        throw new Error('Verification succeeded but no token was returned.');
+      }
+
+      localStorage.setItem('authToken', token);
+
+      if (normalizedRole) {
+        localStorage.setItem('userRole', normalizedRole);
+        login(authData, token, normalizedRole);
+      }
+
+      setSuccess(response.data?.message || 'OTP verified successfully.');
+      navigate('/dashboard', { replace: true });
+    } catch (err) {
+      setError(err.response?.data?.message || err.message || 'OTP verification failed. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleResend = async () => {
+  const handleResendOtp = async () => {
+    if (!email) {
+      setError('We could not find the email for this verification request.');
+      return;
+    }
+
     setResendLoading(true);
+    setError('');
+    setSuccess('');
+
     try {
-      await authService.resendOtp(email);
-      setTimer(300);
-      setError('');
-    } catch (error) {
-      setError('Cannot resend OTP. Try again later.');
+      const response = await authService.resendOtp(email);
+      setSuccess(response.data?.message || 'A new OTP has been sent to your email.');
+      setOtp(Array(OTP_LENGTH).fill(''));
+      focusInput(0);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Unable to resend OTP right now. Please try again.');
     } finally {
       setResendLoading(false);
     }
   };
 
-  useEffect(() => {
-    if (!email) {
-      navigate('/login');
-      return;
-    }
-    const interval = setInterval(() => {
-      setTimer((prev) => {
-        if (prev <= 1) {
-          clearInterval(interval);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [email, navigate]);
-
-  const formatTime = (seconds) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-  };
-
-  const fullOtp = otp.join('');
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 to-indigo-100 flex items-center justify-center px-4 py-12">
-      <Card className="w-full max-w-md p-8">
-        <div className="text-center mb-8">
-          <div className="w-16 h-16 bg-gradient-to-br from-purple-600 to-purple-700 rounded-2xl flex items-center justify-center mx-auto mb-4">
-            <span className="text-white font-bold text-2xl">OTP</span>
+    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-100 via-white to-purple-100 px-4 py-12">
+      <Card className="w-full max-w-md border border-white/70 p-8 shadow-2xl shadow-purple-100/60">
+        <div className="mb-8 text-center">
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-purple-600 text-lg font-bold text-white shadow-lg shadow-purple-200">
+            JP
           </div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Verify your email</h2>
-          <p className="text-gray-600 mb-4">Enter the 6-digit code sent to <strong>{email}</strong></p>
-          {timer > 0 ? (
-            <Badge variant="warning">
-              Time remaining: {formatTime(timer)}
-            </Badge>
-          ) : (
-            <Badge variant="danger">
-              OTP expired
-            </Badge>
-          )}
-        </div>
-
-        {error && (
-          <div className="mb-6 p-4 rounded-lg border border-red-200 bg-red-50 text-red-700 text-sm">
-            {error}
-          </div>
-        )}
-
-        <div 
-          className="grid grid-cols-6 gap-3 mb-6"
-          onPaste={handlePaste}
-        >
-          {otp.map((digit, index) => (
-            <Input
-              key={index}
-              id={`otp-${index}`}
-              type="text"
-              maxLength={1}
-              value={digit}
-              onChange={(e) => handleOtpChange(e.target.value, index)}
-              onKeyDown={(e) => handleKeyDown(e, index)}
-              className="text-center text-lg font-bold h-14"
-              error={false}
-              autoFocus={index === 0}
-            />
-          ))}
-        </div>
-
-        <Button 
-          onClick={handleVerify}
-          loading={loading}
-          disabled={fullOtp.length !== 6 || timer === 0}
-          className="w-full mb-6"
-        >
-          Verify OTP
-        </Button>
-
-        <div className="text-center">
-          <p className="text-sm text-gray-600 mb-2">
-            Didn't receive the code?
+          <h1 className="text-3xl font-bold text-gray-900">Verify OTP</h1>
+          <p className="mt-2 text-sm text-gray-600">
+            Enter the 6-digit code sent to your email address.
           </p>
+          <p className="mt-3 rounded-full bg-purple-50 px-4 py-2 text-sm font-medium text-purple-700">
+            {email || 'No email found'}
+          </p>
+        </div>
+
+        <form onSubmit={handleVerify} className="space-y-6">
+          <div onPaste={handlePaste}>
+            <label className="mb-3 block text-sm font-semibold text-gray-700">
+              One-Time Password
+            </label>
+            <div className="grid grid-cols-6 gap-3">
+              {otp.map((digit, index) => (
+                <Input
+                  key={index}
+                  ref={(element) => {
+                    inputRefs.current[index] = element;
+                  }}
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  maxLength={1}
+                  value={digit}
+                  onChange={(event) => handleOtpChange(event.target.value, index)}
+                  onKeyDown={(event) => handleKeyDown(event, index)}
+                  className="h-14 px-0 text-center text-xl font-semibold tracking-[0.2em]"
+                  aria-label={`OTP digit ${index + 1}`}
+                />
+              ))}
+            </div>
+          </div>
+
+          {error && (
+            <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              {error}
+            </div>
+          )}
+
+          {success && (
+            <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+              {success}
+            </div>
+          )}
+
           <Button
-            variant="outline"
-            size="sm"
-            onClick={handleResend}
-            loading={resendLoading}
-            disabled={timer > 0}
+            type="submit"
+            loading={loading}
+            disabled={loading || otpValue.length !== OTP_LENGTH}
             className="w-full"
           >
-            {timer > 0 ? `Resend in ${formatTime(timer)}` : 'Resend OTP'}
+            Verify OTP
           </Button>
-          <p className="text-xs text-gray-500 mt-2">
-            This will send a new code to your email
-          </p>
-        </div>
 
-        <div className="mt-8 pt-6 border-t border-gray-200 text-center">
-          <button 
-            onClick={() => navigate(-1)}
-            className="text-sm text-purple-600 hover:text-purple-700 font-semibold"
+          <Button
+            type="button"
+            variant="outline"
+            loading={resendLoading}
+            disabled={resendLoading}
+            onClick={handleResendOtp}
+            className="w-full"
           >
-            ← Back to login
-          </button>
-        </div>
+            Resend OTP
+          </Button>
+        </form>
       </Card>
     </div>
   );

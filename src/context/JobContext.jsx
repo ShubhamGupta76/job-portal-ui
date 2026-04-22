@@ -1,6 +1,5 @@
 import React, { createContext, useState, useEffect, useCallback } from 'react';
 import { jobService } from '../services/jobService';
-import { useAuthContext } from './useAuthContext';
 
 const JobContext = createContext();
 
@@ -25,30 +24,60 @@ export const JobProvider = ({ children }) => {
     size: 10,
   });
 
+  const extractJobsPayload = (responseData) => {
+    const rawData = responseData?.data;
+
+    if (Array.isArray(rawData)) {
+      return {
+        jobs: rawData,
+        totalJobs: rawData.length,
+      };
+    }
+
+    if (Array.isArray(rawData?.content)) {
+      return {
+        jobs: rawData.content,
+        totalJobs: rawData.totalElements ?? rawData.content.length,
+      };
+    }
+
+    if (Array.isArray(responseData?.content)) {
+      return {
+        jobs: responseData.content,
+        totalJobs: responseData.totalElements ?? responseData.content.length,
+      };
+    }
+
+    return {
+      jobs: [],
+      totalJobs: 0,
+    };
+  };
+
   const fetchJobs = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const params = {
-        page: pagination.page,
+      const response = await jobService.getJobs({
+        page: Math.max(0, pagination.page - 1),
         size: pagination.size,
-        search: filters.search || undefined,
-        location: filters.location || undefined,
-        jobType: filters.jobType || undefined,
-        experience: filters.experience || undefined,
-        salaryMin: filters.salaryMin || undefined,
-        salaryMax: filters.salaryMax || undefined,
-        sort: filters.sort,
-      };
-      const response = await jobService.getJobs(params);
-      const payload = response.data?.data;
-      const jobsData = Array.isArray(payload)
-        ? payload
-        : Array.isArray(payload?.content)
-          ? payload.content
-          : [];
+      });
+      console.log('RAW API:', response);
+
+      const jobsArray =
+        response?.data?.data ??
+        response?.data?.content ??
+        response?.data ??
+        [];
+
+      console.log('PARSED JOBS:', jobsArray);
+
+      const { jobs: jobsData, totalJobs: resolvedTotalJobs } = extractJobsPayload({
+        data: jobsArray,
+      });
+
       setJobs(jobsData);
-      setTotalJobs(payload?.totalElements || jobsData.length);
+      setTotalJobs(resolvedTotalJobs);
     } catch (err) {
       console.error('Error fetching jobs:', err);
       const status = err.response?.status;
@@ -63,14 +92,14 @@ export const JobProvider = ({ children }) => {
       setLoading(false);
     }
   }, [filters, pagination.page, pagination.size]);
-
-  const { isLoggedIn } = useAuthContext();
   
   useEffect(() => {
-    if (isLoggedIn) {
-      fetchJobs();
-    }
-  }, [isLoggedIn, fetchJobs]);
+    fetchJobs();
+  }, [fetchJobs]);
+
+  useEffect(() => {
+    console.log('Jobs state:', jobs);
+  }, [jobs]);
 
   const updateFilters = (newFilters) => {
     setFilters((prev) => ({ ...prev, ...newFilters }));
