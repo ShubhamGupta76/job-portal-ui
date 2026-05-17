@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { useAuthContext } from './context/useAuthContext';
 import { Header, Footer } from './components/layout';
@@ -39,9 +39,6 @@ import {
   TestInterface,
 } from './features/assessments/pages';
 
-// Recruiter Layout
-import RecruiterLayout from './features/recruiter/components/RecruiterLayout';
-
 /**
  * Main App Component with Routing
  */
@@ -57,10 +54,25 @@ function App() {
 
 function AppContent() {
   const { isLoggedIn, userRole } = useAuthContext();
+  const location = useLocation();
+  const isJobsWorkspace =
+    location.pathname === '/jobs' ||
+    location.pathname === '/dashboard' ||
+    location.pathname === '/candidate/assessments' ||
+    location.pathname.startsWith('/test/') ||
+    location.pathname === '/recruiter/dashboard' ||
+    location.pathname === '/recruiter/post-job' ||
+    location.pathname === '/recruiter/manage-jobs' ||
+    location.pathname === '/recruiter/applicants' ||
+    location.pathname === '/recruiter/company-profile' ||
+    location.pathname === '/recruiter/assessments' ||
+    location.pathname === '/recruiter/analytics' ||
+    location.pathname === '/recruiter/assessments/create' ||
+    /^\/recruiter\/assessments\/[^/]+\/edit$/.test(location.pathname);
 
   return (
-    <div className="flex flex-col min-h-screen">
-      <Header isLoggedIn={isLoggedIn} userRole={userRole} />
+    <div className="app-shell flex min-h-screen flex-col">
+      {!isJobsWorkspace && <Header isLoggedIn={isLoggedIn} userRole={userRole} />}
 
       <main className="flex-grow">
         <Routes>
@@ -104,66 +116,48 @@ function AppContent() {
           {/* Recruiter Routes */}
           <Route path="/recruiter/dashboard" element={
             <ProtectedRoute role="recruiter">
-              <RecruiterLayout title="Recruiter Dashboard" subtitle="Manage your hiring workflow">
-                <RecruiterDashboardPage />
-              </RecruiterLayout>
+              <RecruiterDashboardPage />
             </ProtectedRoute>
           } />
           <Route path="/recruiter/post-job" element={
             <ProtectedRoute role="recruiter">
-              <RecruiterLayout title="Post New Job" subtitle="Attract top talent">
-                <PostJobPage />
-              </RecruiterLayout>
+              <PostJobPage />
             </ProtectedRoute>
           } />
           <Route path="/recruiter/manage-jobs" element={
             <ProtectedRoute role="recruiter">
-              <RecruiterLayout title="Manage Jobs" subtitle="Job postings & applications">
-                <ManageJobsPage />
-              </RecruiterLayout>
+              <ManageJobsPage />
             </ProtectedRoute>
           } />
           <Route path="/recruiter/applicants" element={
             <ProtectedRoute role="recruiter">
-              <RecruiterLayout title="Applicants" subtitle="Review & advance candidates">
-                <ApplicantsPage />
-              </RecruiterLayout>
+              <ApplicantsPage />
             </ProtectedRoute>
           } />
           <Route path="/recruiter/company-profile" element={
             <ProtectedRoute role="recruiter">
-              <RecruiterLayout title="Company Profile" subtitle="Employer branding">
-                <CompanyProfilePage />
-              </RecruiterLayout>
+              <CompanyProfilePage />
             </ProtectedRoute>
           } />
           <Route path="/recruiter/analytics" element={
             <ProtectedRoute role="recruiter">
-              <RecruiterLayout title="Analytics" subtitle="Hiring insights dashboard">
-                <AnalyticsPage />
-              </RecruiterLayout>
+              <AnalyticsPage />
             </ProtectedRoute>
           } />
           
           <Route path="/recruiter/assessments" element={
             <ProtectedRoute role="recruiter">
-              <RecruiterLayout title="Assessments" subtitle="Coding tests & MCQ">
-                <AssessmentsPage />
-              </RecruiterLayout>
+              <AssessmentsPage />
             </ProtectedRoute>
           } />
           <Route path="/recruiter/assessments/create" element={
             <ProtectedRoute role="recruiter">
-              <RecruiterLayout title="Create Assessment" subtitle="Build coding test">
-                <CreateAssessmentPage />
-              </RecruiterLayout>
+              <CreateAssessmentPage />
             </ProtectedRoute>
           } />
           <Route path="/recruiter/assessments/:assessmentId/edit" element={
             <ProtectedRoute role="recruiter">
-              <RecruiterLayout title="Edit Assessment" subtitle="Update coding test">
-                <EditAssessmentPage />
-              </RecruiterLayout>
+              <EditAssessmentPage />
             </ProtectedRoute>
           } />
           <Route path="/recruiter/assessments/:assessmentId/leaderboard" element={
@@ -178,7 +172,7 @@ function AppContent() {
         </Routes>
       </main>
 
-      <Footer />
+      {!isJobsWorkspace && <Footer />}
     </div>
   );
 }

@@ -126,7 +126,7 @@ const OtpVerificationPage = () => {
       }
 
       setSuccess(response.data?.message || 'OTP verified successfully.');
-      navigate('/dashboard', { replace: true });
+      navigate(normalizedRole === 'recruiter' ? '/recruiter/dashboard' : '/dashboard', { replace: true });
     } catch (err) {
       setError(err.response?.data?.message || err.message || 'OTP verification failed. Please try again.');
     } finally {
@@ -157,24 +157,24 @@ const OtpVerificationPage = () => {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-100 via-white to-purple-100 px-4 py-12">
-      <Card className="w-full max-w-md border border-white/70 p-8 shadow-2xl shadow-purple-100/60">
+    <div className="flex min-h-screen items-center justify-center px-4 py-12">
+      <Card className="w-full max-w-xl p-8 sm:p-10">
         <div className="mb-8 text-center">
-          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-purple-600 text-lg font-bold text-white shadow-lg shadow-purple-200">
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500 to-cyan-500 text-lg font-bold text-white shadow-[0_18px_35px_rgba(14,165,233,0.24)]">
             JP
           </div>
-          <h1 className="text-3xl font-bold text-gray-900">Verify OTP</h1>
-          <p className="mt-2 text-sm text-gray-600">
+          <h1 className="text-3xl font-semibold text-slate-950">Verify OTP</h1>
+          <p className="mt-2 text-sm text-slate-500">
             Enter the 6-digit code sent to your email address.
           </p>
-          <p className="mt-3 rounded-full bg-purple-50 px-4 py-2 text-sm font-medium text-purple-700">
+          <p className="mt-3 rounded-full bg-blue-50 px-4 py-2 text-sm font-medium text-blue-700">
             {email || 'No email found'}
           </p>
         </div>
 
         <form onSubmit={handleVerify} className="space-y-6">
           <div onPaste={handlePaste}>
-            <label className="mb-3 block text-sm font-semibold text-gray-700">
+            <label className="mb-3 block text-sm font-semibold text-slate-700">
               One-Time Password
             </label>
             <div className="grid grid-cols-6 gap-3">

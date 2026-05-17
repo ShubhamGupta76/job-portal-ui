@@ -5,11 +5,8 @@ import Button from '../../../components/common/Button';
 import Input from '../../../components/common/Input';
 import { authService } from '../../../services/authService';
 
-/**
- * Signup Page
- */
 const SignupPage = () => {
-  const [userType, setUserType] = useState('candidate'); // 'candidate' or 'recruiter'
+  const [userType, setUserType] = useState('candidate');
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -79,7 +76,7 @@ const SignupPage = () => {
         email: formData.email,
         password: formData.password,
         phone: formData.phone || '',
-        role: userType === 'recruiter' ? 'RECRUITER' : 'USER'
+        role: userType === 'recruiter' ? 'RECRUITER' : 'USER',
       };
 
       const response = await authService.signup(signupData);
@@ -107,52 +104,71 @@ const SignupPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 to-purple-100 py-12 px-4">
-      <div className="max-w-2xl mx-auto">
-        <div className="text-center mb-8">
-          <div className="w-12 h-12 bg-gradient-to-br from-purple-600 to-purple-700 rounded-lg flex items-center justify-center mx-auto mb-4">
-            <span className="text-white font-bold text-xl">JP</span>
+    <div className="min-h-screen px-4 py-10 sm:px-6 lg:px-10">
+      <div className="mx-auto grid max-w-[1380px] gap-8 lg:grid-cols-[420px_minmax(0,1fr)]">
+        <Card className="overflow-hidden p-0">
+          <div className="bg-gradient-to-br from-blue-600 via-blue-500 to-cyan-400 px-8 py-10 text-white">
+            <p className="text-sm uppercase tracking-[0.22em] text-blue-100">Create account</p>
+            <h1 className="mt-4 text-4xl font-semibold text-white">Join as a candidate or recruiter.</h1>
+            <p className="mt-4 text-sm leading-7 text-blue-50">
+              This screen still submits to your current signup backend. The redesign only improves layout, hierarchy, and role selection.
+            </p>
           </div>
-          <h1 className="text-3xl font-bold text-gray-900">Join JobPortal</h1>
-          <p className="text-gray-600 mt-2">Create your account to get started</p>
-        </div>
+          <div className="grid gap-4 p-8">
+            <div className="rounded-[22px] bg-slate-50 p-4">
+              <p className="text-sm text-slate-500">Candidate account</p>
+              <p className="mt-2 text-lg font-semibold text-slate-950">Browse jobs, save roles, upload resume, and take tests.</p>
+            </div>
+            <div className="rounded-[22px] bg-slate-50 p-4">
+              <p className="text-sm text-slate-500">Recruiter account</p>
+              <p className="mt-2 text-lg font-semibold text-slate-950">Post jobs, review applicants, and manage assessments.</p>
+            </div>
+          </div>
+        </Card>
 
-        <Card className="p-8">
-          {/* User Type Selection */}
-          <div className="flex gap-4 mb-8">
+        <Card className="p-8 sm:p-10">
+          <div className="mb-8">
+            <h2 className="text-3xl font-semibold text-slate-950">Account setup</h2>
+            <p className="mt-2 text-sm text-slate-500">Choose your role and complete the details below.</p>
+          </div>
+
+          <div className="mb-8 grid gap-3 sm:grid-cols-2">
             <button
+              type="button"
               onClick={() => {
                 setUserType('candidate');
                 setFormData((prev) => ({ ...prev, company: '' }));
               }}
-              className={`flex-1 py-3 px-4 rounded-lg font-semibold transition-all ${
+              className={`rounded-[22px] border px-4 py-4 text-left transition ${
                 userType === 'candidate'
-                  ? 'bg-purple-600 text-white'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  ? 'border-blue-500 bg-blue-50 text-blue-700 shadow-[0_14px_32px_rgba(37,99,235,0.12)]'
+                  : 'border-slate-200 bg-white text-slate-600 hover:border-blue-200'
               }`}
             >
-              🧑‍💼 I'm a Candidate
+              <p className="font-semibold">Candidate</p>
+              <p className="mt-1 text-sm">Apply, track, and grow.</p>
             </button>
             <button
+              type="button"
               onClick={() => setUserType('recruiter')}
-              className={`flex-1 py-3 px-4 rounded-lg font-semibold transition-all ${
+              className={`rounded-[22px] border px-4 py-4 text-left transition ${
                 userType === 'recruiter'
-                  ? 'bg-purple-600 text-white'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  ? 'border-blue-500 bg-blue-50 text-blue-700 shadow-[0_14px_32px_rgba(37,99,235,0.12)]'
+                  : 'border-slate-200 bg-white text-slate-600 hover:border-blue-200'
               }`}
             >
-              🏢 I'm a Recruiter
+              <p className="font-semibold">Recruiter</p>
+              <p className="mt-1 text-sm">Hire, filter, and assess.</p>
             </button>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-5">
             {errors.general && (
-              <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
                 {errors.general}
               </div>
             )}
 
-            {/* Name */}
             <Input
               label="Full Name"
               type="text"
@@ -162,10 +178,8 @@ const SignupPage = () => {
               onChange={handleChange}
               error={errors.name}
               required
-              leftIcon="👤"
             />
 
-            {/* Email */}
             <Input
               label="Email Address"
               type="email"
@@ -175,10 +189,8 @@ const SignupPage = () => {
               onChange={handleChange}
               error={errors.email}
               required
-              leftIcon="✉️"
             />
 
-            {/* Company (only for recruiters) */}
             {userType === 'recruiter' && (
               <Input
                 label="Company Name"
@@ -189,54 +201,43 @@ const SignupPage = () => {
                 onChange={handleChange}
                 error={errors.company}
                 required
-                leftIcon="🏢"
               />
             )}
 
-            {/* Password */}
-            <Input
-              label="Password"
-              type="password"
-              name="password"
-              placeholder="Create a strong password"
-              value={formData.password}
-              onChange={handleChange}
-              error={errors.password}
-              required
-              leftIcon="🔐"
-              autoComplete="new-password"
-            />
+            <div className="grid gap-5 md:grid-cols-2">
+              <Input
+                label="Password"
+                type="password"
+                name="password"
+                placeholder="Create a strong password"
+                value={formData.password}
+                onChange={handleChange}
+                error={errors.password}
+                required
+                autoComplete="new-password"
+              />
 
-            {/* Confirm Password */}
-            <Input
-              label="Confirm Password"
-              type="password"
-              name="confirmPassword"
-              placeholder="Re-enter your password"
-              value={formData.confirmPassword}
-              onChange={handleChange}
-              error={errors.confirmPassword}
-              required
-              leftIcon="🔐"
-              autoComplete="new-password"
-            />
+              <Input
+                label="Confirm Password"
+                type="password"
+                name="confirmPassword"
+                placeholder="Re-enter your password"
+                value={formData.confirmPassword}
+                onChange={handleChange}
+                error={errors.confirmPassword}
+                required
+                autoComplete="new-password"
+              />
+            </div>
 
-            {/* Terms */}
-            <label className="flex items-start gap-2 cursor-pointer">
+            <label className="flex cursor-pointer items-start gap-3 rounded-[20px] border border-slate-200 bg-slate-50 px-4 py-4">
               <input
                 type="checkbox"
                 required
-                className="w-4 h-4 rounded accent-purple-600 mt-1"
+                className="mt-1 h-4 w-4 rounded accent-blue-600"
               />
-              <span className="text-sm text-gray-600">
-                I agree to the{' '}
-                <a href="#" className="text-purple-600 hover:text-purple-700 font-semibold">
-                  Terms of Service
-                </a>{' '}
-                and{' '}
-                <a href="#" className="text-purple-600 hover:text-purple-700 font-semibold">
-                  Privacy Policy
-                </a>
+              <span className="text-sm text-slate-600">
+                I agree to the platform terms and privacy policy.
               </span>
             </label>
 
@@ -245,10 +246,10 @@ const SignupPage = () => {
             </Button>
           </form>
 
-          <div className="mt-6 pt-6 border-t border-gray-200">
-            <p className="text-sm text-gray-600 text-center">
+          <div className="mt-8 border-t border-slate-200 pt-6">
+            <p className="text-sm text-slate-500">
               Already have an account?{' '}
-              <Link to="/login" className="text-purple-600 hover:text-purple-700 font-semibold">
+              <Link to="/login" className="font-semibold text-blue-700 hover:text-blue-800">
                 Sign in here
               </Link>
             </p>

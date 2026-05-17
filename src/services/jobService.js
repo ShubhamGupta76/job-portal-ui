@@ -23,11 +23,17 @@ export const jobService = {
   getMyJobs: () =>
     apiClient.get('/jobs/my-jobs'),
 
+  archiveOldJobs: (days = 90) =>
+    apiClient.post('/jobs/archive-old', null, { params: { days } }),
+
   applyJob: (applicationData) => {
     const formData = new FormData();
     formData.append('jobId', applicationData.jobId);
     if (applicationData.coverLetter) {
       formData.append('coverLetter', applicationData.coverLetter);
+    }
+    if (applicationData.source) {
+      formData.append('source', applicationData.source);
     }
     if (applicationData.resume) {
       formData.append('resume', applicationData.resume);

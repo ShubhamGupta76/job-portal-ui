@@ -18,7 +18,7 @@ const Input = React.forwardRef(({
   return (
     <div className="w-full">
       {label && (
-        <label className="block text-sm font-semibold text-gray-700 mb-2">
+        <label className="mb-2 block text-sm font-semibold text-slate-700">
           {label}
           {required && <span className="text-red-500 ml-1">*</span>}
         </label>
@@ -34,13 +34,13 @@ const Input = React.forwardRef(({
           type={type}
           placeholder={placeholder}
           className={`
-            w-full px-4 py-2.5 rounded-lg border-2 transition-colors duration-200
-            focus:outline-none focus:ring-2 focus:ring-purple-500
+            w-full rounded-2xl border bg-white/92 px-4 py-3 text-slate-900 shadow-sm transition-colors duration-200
+            placeholder:text-slate-400 focus:outline-none focus:ring-4 focus:ring-blue-100
             ${leftIcon ? 'pl-10' : ''}
             ${rightIcon ? 'pr-10' : ''}
             ${error 
-              ? 'border-red-500 focus:ring-red-500' 
-              : 'border-gray-200 focus:border-purple-500'
+              ? 'border-red-400 focus:border-red-500 focus:ring-red-100' 
+              : 'border-slate-200 focus:border-blue-500'
             }
             ${className}
           `}

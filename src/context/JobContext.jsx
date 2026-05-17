@@ -10,6 +10,13 @@ export const JobProvider = ({ children }) => {
   const [totalJobs, setTotalJobs] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [filterOptions, setFilterOptions] = useState({
+    locations: [],
+    jobTypes: [],
+    experienceLevels: [],
+    minSalary: null,
+    maxSalary: null,
+  });
   const [filters, setFilters] = useState({
     search: '',
     location: '',
@@ -92,10 +99,36 @@ export const JobProvider = ({ children }) => {
       setLoading(false);
     }
   }, [filters, pagination.page, pagination.size]);
+
+  const fetchFilterOptions = useCallback(async () => {
+    try {
+      const response = await jobService.getFilterOptions();
+      setFilterOptions(response.data?.data || {
+        locations: [],
+        jobTypes: [],
+        experienceLevels: [],
+        minSalary: null,
+        maxSalary: null,
+      });
+    } catch (err) {
+      console.error('Error fetching filter options:', err);
+      setFilterOptions({
+        locations: [],
+        jobTypes: [],
+        experienceLevels: [],
+        minSalary: null,
+        maxSalary: null,
+      });
+    }
+  }, []);
   
   useEffect(() => {
     fetchJobs();
   }, [fetchJobs]);
+
+  useEffect(() => {
+    fetchFilterOptions();
+  }, [fetchFilterOptions]);
 
   useEffect(() => {
     console.log('Jobs state:', jobs);
@@ -128,12 +161,14 @@ export const JobProvider = ({ children }) => {
     totalJobs,
     loading,
     error,
+    filterOptions,
     filters,
     pagination,
     updateFilters,
     clearFilters,
     updatePagination,
     fetchJobs,
+    fetchFilterOptions,
   };
 
   return <JobContext.Provider value={value}>{children}</JobContext.Provider>;

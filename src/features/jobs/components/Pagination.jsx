@@ -16,7 +16,7 @@ const Pagination = () => {
   };
 
   const getVisiblePages = () => {
-    const delta = 2;
+    const delta = 1;
     const range = [];
     const rangeWithDots = [];
 
@@ -42,39 +42,41 @@ const Pagination = () => {
   };
 
   return (
-    <div className="mt-8 flex items-center justify-center gap-2">
-      <button
-        onClick={() => handlePageChange(currentPage - 1)}
-        disabled={currentPage === 1}
-        className="rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-      >
-        Previous
-      </button>
-
-      {getVisiblePages().map((page, index) => (
+    <div className="mt-10 flex flex-col items-center gap-5">
+      <div className="flex items-center gap-3">
         <button
-          key={index}
-          onClick={() => typeof page === 'number' && handlePageChange(page)}
-          disabled={page === '...'}
-          className={`rounded-md px-3 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
-            page === currentPage
-              ? 'bg-blue-600 text-white'
-              : page === '...'
-              ? 'cursor-default text-gray-700'
-              : 'border border-gray-300 text-gray-700 hover:bg-gray-50'
-          }`}
+          onClick={() => handlePageChange(currentPage - 1)}
+          disabled={currentPage === 1}
+          className="flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 disabled:opacity-40"
         >
-          {page}
+          ‹
         </button>
-      ))}
 
-      <button
-        onClick={() => handlePageChange(currentPage + 1)}
-        disabled={currentPage === totalPages}
-        className="rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-      >
-        Next
-      </button>
+        {getVisiblePages().map((page, index) => (
+          <button
+            key={`${page}-${index}`}
+            onClick={() => typeof page === 'number' && handlePageChange(page)}
+            disabled={page === '...'}
+            className={`flex h-11 min-w-11 items-center justify-center rounded-xl px-4 text-sm font-semibold ${
+              page === currentPage
+                ? 'bg-blue-600 text-white shadow-[0_12px_24px_rgba(37,99,235,0.22)]'
+                : page === '...'
+                ? 'cursor-default text-slate-500'
+                : 'border border-slate-200 bg-white text-slate-700'
+            }`}
+          >
+            {page}
+          </button>
+        ))}
+
+        <button
+          onClick={() => handlePageChange(currentPage + 1)}
+          disabled={currentPage === totalPages}
+          className="flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 disabled:opacity-40"
+        >
+          ›
+        </button>
+      </div>
     </div>
   );
 };

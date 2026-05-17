@@ -1,8 +1,12 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import CodeEditor from './CodeEditor';
 
-const Question = ({ question, answer, onAnswerChange }) => {
+const Question = ({ question, answer, onAnswerChange, sessionToken, onCodeSubmitted, showResponseArea = true }) => {
   const [selectedOption, setSelectedOption] = useState(answer);
+
+  useEffect(() => {
+    setSelectedOption(answer);
+  }, [answer, question?.id]);
 
   const handleMCQChange = (option) => {
     setSelectedOption(option);
@@ -10,66 +14,105 @@ const Question = ({ question, answer, onAnswerChange }) => {
   };
 
   return (
-    <div>
-      <div className="mb-6">
-        <h2 className="text-2xl font-semibold mb-2">{question.title}</h2>
-        <p className="text-gray-600 mb-4">{question.description}</p>
-        
-        <div className="inline-block px-3 py-1 bg-blue-100 text-blue-700 text-sm rounded mb-4">
-          Marks: {question.marks}
+    <div className="space-y-6">
+      <div className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="flex flex-wrap items-center gap-3">
+          <QuestionPill tone="blue" label={`${question.marks || 0} Marks`} />
+          {question.difficulty && <QuestionPill tone={difficultyTone(question.difficulty)} label={question.difficulty} />}
+          <QuestionPill tone="slate" label={question.type} />
         </div>
-        
-        {question.difficulty && (
-          <div className={`inline-block ml-2 px-3 py-1 text-sm rounded ${
-            question.difficulty === 'EASY' ? 'bg-green-100 text-green-700' :
-            question.difficulty === 'MEDIUM' ? 'bg-yellow-100 text-yellow-700' :
-            'bg-red-100 text-red-700'
-          }`}>
-            {question.difficulty}
-          </div>
-        )}
+
+        <h2 className="mt-5 text-4xl font-semibold tracking-tight text-slate-900">{question.title}</h2>
+        <div className="mt-4 whitespace-pre-wrap text-base leading-8 text-slate-600">
+          {question.description || 'No question description provided.'}
+        </div>
       </div>
 
-      {question.type === 'MCQ' && (
-        <div className="space-y-3">
-          {['option1', 'option2', 'option3', 'option4'].map((optionKey, idx) => (
+      {showResponseArea && question.type === 'MCQ' && (
+        <div className="grid grid-cols-1 gap-4">
+          {['option1', 'option2', 'option3', 'option4'].map((optionKey, index) => (
             question[optionKey] && (
-              <label key={idx} className="flex items-center p-3 border-2 border-gray-300 rounded hover:bg-blue-50 cursor-pointer transition">
-                <input
-                  type="radio"
-                  name="mcq"
-                  value={optionKey}
-                  checked={selectedOption === optionKey}
-                  onChange={() => handleMCQChange(optionKey)}
-                  className="mr-3"
-                />
-                <span>{question[optionKey]}</span>
-              </label>
+              <button
+                key={optionKey}
+                type="button"
+                onClick={() => handleMCQChange(optionKey)}
+                className={`rounded-[24px] border px-5 py-5 text-left transition ${
+                  selectedOption === optionKey
+                    ? 'border-blue-500 bg-blue-50 shadow-[0_12px_24px_rgba(37,99,235,0.14)]'
+                    : 'border-slate-200 bg-white hover:border-blue-200 hover:bg-slate-50'
+                }`}
+              >
+                <div className="flex items-start gap-4">
+                  <div className={`flex h-10 w-10 items-center justify-center rounded-2xl text-sm font-semibold ${
+                    selectedOption === optionKey ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600'
+                  }`}>
+                    {String.fromCharCode(65 + index)}
+                  </div>
+                  <div className="pt-1 text-base text-slate-700">{question[optionKey]}</div>
+                </div>
+              </button>
             )
           ))}
         </div>
       )}
 
-      {question.type === 'CODING' && (
+      {showResponseArea && question.type === 'CODING' && (
         <CodeEditor
+          questionId={question.id}
+          sessionToken={sessionToken}
           language={question.programmingLanguage || 'python'}
           template={question.codeTemplate || ''}
           initialCode={answer}
-          onChange={onAnswerChange}
-          testCases={question.testCases}
+          onChange={(code) => onAnswerChange(code)}
+          onSubmitted={onCodeSubmitted}
+          testCases={question.sampleTestCases || question.testCases}
         />
       )}
 
-      {question.type === 'DESCRIPTIVE' && (
-        <textarea
-          value={answer}
-          onChange={(e) => onAnswerChange(e.target.value)}
-          placeholder="Write your answer here..."
-          className="w-full h-64 p-4 border-2 border-gray-300 rounded focus:outline-none focus:border-blue-500 font-mono"
-        />
+      {showResponseArea && question.type === 'DESCRIPTIVE' && (
+        <div className="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm">
+          <div className="border-b border-slate-200 px-6 py-4">
+            <p className="text-sm font-medium text-slate-500">Written Response</p>
+          </div>
+          <textarea
+            value={answer}
+            onChange={(event) => onAnswerChange(event.target.value)}
+            placeholder="Write your answer here..."
+            className="h-[360px] w-full resize-none px-6 py-5 text-base leading-8 text-slate-700 outline-none"
+          />
+        </div>
       )}
     </div>
   );
+};
+
+const QuestionPill = ({ label, tone }) => {
+  const tones = {
+    blue: 'bg-blue-50 text-blue-700',
+    green: 'bg-emerald-50 text-emerald-700',
+    yellow: 'bg-amber-50 text-amber-700',
+    red: 'bg-rose-50 text-rose-700',
+    slate: 'bg-slate-100 text-slate-600',
+  };
+
+  return (
+    <span className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] ${tones[tone] || tones.slate}`}>
+      {label}
+    </span>
+  );
+};
+
+const difficultyTone = (difficulty) => {
+  switch (String(difficulty).toUpperCase()) {
+    case 'EASY':
+      return 'green';
+    case 'MEDIUM':
+      return 'yellow';
+    case 'HARD':
+      return 'red';
+    default:
+      return 'slate';
+  }
 };
 
 export default Question;

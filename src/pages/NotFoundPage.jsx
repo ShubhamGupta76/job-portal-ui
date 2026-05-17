@@ -2,17 +2,16 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import Button from '../components/common/Button';
 
-/**
- * 404 Not Found Page
- */
 const NotFoundPage = () => {
   return (
-    <div className="bg-gray-50 min-h-screen flex items-center justify-center px-4">
-      <div className="text-center">
-        <div className="text-6xl mb-6">🔍</div>
-        <h1 className="text-4xl font-bold text-gray-900 mb-4">Page Not Found</h1>
-        <p className="text-gray-600 mb-8 text-lg">
-          Sorry, the page you're looking for doesn't exist.
+    <div className="flex min-h-screen items-center justify-center px-4">
+      <div className="max-w-lg rounded-[32px] border border-slate-200/80 bg-white/88 p-10 text-center shadow-[0_28px_80px_rgba(15,23,42,0.10)] backdrop-blur">
+        <div className="mx-auto mb-6 flex h-18 w-18 items-center justify-center rounded-full bg-blue-50 text-3xl font-semibold text-blue-700">
+          404
+        </div>
+        <h1 className="mb-4 text-4xl font-semibold text-slate-950">Page Not Found</h1>
+        <p className="mb-8 text-lg text-slate-500">
+          Sorry, the page you&apos;re looking for doesn&apos;t exist.
         </p>
         <Link to="/">
           <Button size="lg">Go Back Home</Button>
