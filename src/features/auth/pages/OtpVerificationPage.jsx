@@ -126,7 +126,13 @@ const OtpVerificationPage = () => {
       }
 
       setSuccess(response.data?.message || 'OTP verified successfully.');
-      navigate(normalizedRole === 'recruiter' ? '/recruiter/dashboard' : '/dashboard', { replace: true });
+      const roleRedirects = {
+        admin: '/admin/dashboard',
+        recruiter: '/recruiter/dashboard',
+        candidate: '/dashboard',
+      };
+
+      navigate(roleRedirects[normalizedRole] || '/dashboard', { replace: true });
     } catch (err) {
       setError(err.response?.data?.message || err.message || 'OTP verification failed. Please try again.');
     } finally {

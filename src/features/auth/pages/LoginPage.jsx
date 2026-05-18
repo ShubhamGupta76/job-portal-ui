@@ -4,7 +4,6 @@ import Card from '../../../components/common/Card';
 import Button from '../../../components/common/Button';
 import Input from '../../../components/common/Input';
 import { authService } from '../../../services/authService';
-import { useAuthContext } from '../../../context/useAuthContext';
 
 const LoginPage = () => {
   const [formData, setFormData] = useState({
@@ -14,7 +13,6 @@ const LoginPage = () => {
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-  const { login } = useAuthContext();
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -60,7 +58,7 @@ const LoginPage = () => {
     setLoading(true);
     try {
       const email = formData.email.trim();
-      const response = await authService.sendOtpForLogin(email, formData.password);
+      const response = await authService.sendOtpForLogin(email, formData.password.trim());
       if (response.data.success) {
         navigate('/otp-verify', { state: { email, isLogin: true } });
       } else {
@@ -77,23 +75,23 @@ const LoginPage = () => {
   return (
     <div className="min-h-screen px-4 py-10 sm:px-6 lg:px-10">
       <div className="mx-auto grid max-w-[1350px] gap-8 lg:grid-cols-[minmax(0,1.1fr)_520px]">
-        <div className="rounded-[36px] bg-slate-950 px-8 py-10 text-white shadow-[0_40px_90px_rgba(15,23,42,0.22)] sm:px-12 sm:py-14">
-          <p className="text-sm uppercase tracking-[0.24em] text-blue-200">Welcome back</p>
-          <h1 className="mt-5 max-w-2xl text-4xl font-semibold tracking-tight text-white sm:text-5xl">
+        <div className="rounded-[36px] border border-teal-100 bg-[linear-gradient(135deg,#f0fdfa_0%,#dbeafe_52%,#fff7ed_100%)] px-8 py-10 text-slate-950 shadow-[0_40px_90px_rgba(15,23,42,0.14)] sm:px-12 sm:py-14">
+          <p className="text-sm font-semibold uppercase tracking-[0.24em] text-teal-700">Welcome back</p>
+          <h1 className="mt-5 max-w-2xl text-4xl font-semibold tracking-normal text-slate-950 sm:text-5xl">
             Sign in to continue your hiring workflow without changing the backend flow.
           </h1>
-          <p className="mt-5 max-w-xl text-slate-300">
+          <p className="mt-5 max-w-xl text-slate-700">
             Candidates can track opportunities and recruiters can return to their hiring workspace. Your current OTP-based backend process remains unchanged.
           </p>
           <div className="mt-10 grid gap-4 sm:grid-cols-3">
             {[
-              ['Live jobs', 'Search active openings quickly.'],
-              ['Assessments', 'Move from shortlist to test interface.'],
-              ['Dashboards', 'Keep applications and pipeline visible.'],
-            ].map(([title, body]) => (
-              <div key={title} className="rounded-[24px] border border-white/10 bg-white/6 p-4">
-                <p className="text-lg font-semibold text-white">{title}</p>
-                <p className="mt-2 text-sm text-slate-300">{body}</p>
+              ['Live jobs', 'Search active openings quickly.', 'border-teal-100 bg-white/78 hover:bg-teal-600 hover:text-white hover:border-teal-300'],
+              ['Assessments', 'Move from shortlist to test interface.', 'border-orange-100 bg-white/78 hover:bg-orange-500 hover:text-white hover:border-orange-300'],
+              ['Dashboards', 'Keep applications and pipeline visible.', 'border-blue-100 bg-white/78 hover:bg-blue-600 hover:text-white hover:border-blue-300'],
+            ].map(([title, body, tone]) => (
+              <div key={title} className={`group rounded-[24px] border p-4 shadow-[0_14px_34px_rgba(15,23,42,0.08)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_22px_48px_rgba(15,23,42,0.16)] ${tone}`}>
+                <p className="text-lg font-semibold text-slate-950 transition group-hover:text-white">{title}</p>
+                <p className="mt-2 text-sm text-slate-600 transition group-hover:text-white/90">{body}</p>
               </div>
             ))}
           </div>

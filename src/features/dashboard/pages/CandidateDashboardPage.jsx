@@ -227,7 +227,7 @@ const CandidateDashboardPage = () => {
           <nav className="space-y-1 px-4">
             <SidebarLink label="Dashboard" path="/dashboard" active />
             <SidebarLink label="Find Jobs" path="/jobs" />
-            <SidebarLink label="Applications" path="/dashboard" count={activeApplications} />
+            <SidebarLink label="Applications" path="/applications" count={activeApplications} />
             <SidebarLink label="Assessments" path="/candidate/assessments" count={pendingAssessments} />
             <SidebarLink label="Profile" path="/profile" />
           </nav>

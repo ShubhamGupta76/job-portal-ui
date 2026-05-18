@@ -67,6 +67,15 @@ const Header = ({ isLoggedIn = false, userRole = 'candidate' }) => {
               </Link>
             )}
 
+            {isLoggedIn && userRole === 'admin' && (
+              <Link
+                to="/admin/dashboard"
+                className={`rounded-full px-4 py-2 text-sm font-medium ${isActive('/admin/dashboard') ? 'bg-white text-slate-950' : 'text-slate-300 hover:text-white'}`}
+              >
+                Admin
+              </Link>
+            )}
+
             {isLoggedIn && (
               <>
                 <NotificationIcon
@@ -134,6 +143,11 @@ const Header = ({ isLoggedIn = false, userRole = 'candidate' }) => {
             {isLoggedIn && userRole === 'candidate' && (
               <Link to="/dashboard" className="block rounded-2xl px-4 py-3 text-sm font-medium text-slate-200 hover:bg-white/10 hover:text-white">
                 Dashboard
+              </Link>
+            )}
+            {isLoggedIn && userRole === 'admin' && (
+              <Link to="/admin/dashboard" className="block rounded-2xl px-4 py-3 text-sm font-medium text-slate-200 hover:bg-white/10 hover:text-white">
+                Admin
               </Link>
             )}
             {isLoggedIn && (

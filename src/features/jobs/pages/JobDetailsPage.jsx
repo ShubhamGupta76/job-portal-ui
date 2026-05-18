@@ -170,18 +170,18 @@ const JobDetailsPage = () => {
 
         <section className="overflow-hidden rounded-[30px] border border-white bg-white shadow-[0_24px_70px_rgba(15,23,42,0.12)]">
           <div className="grid gap-0 lg:grid-cols-[minmax(0,1fr)_320px]">
-            <div className="bg-gradient-to-br from-slate-950 via-slate-900 to-blue-950 p-6 text-white sm:p-8 lg:p-10">
+            <div className="bg-[linear-gradient(135deg,#0f172a_0%,#134e4a_56%,#1d4ed8_150%)] p-6 text-white sm:p-8 lg:p-10">
               <div className="flex flex-col gap-6 sm:flex-row sm:items-start">
-                <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-white/10 text-lg font-bold ring-1 ring-white/20">
+                <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-white/14 text-lg font-bold text-white ring-1 ring-white/25">
                   {getInitials(job.companyName)}
                 </div>
                 <div className="min-w-0">
-                  <p className="flex flex-wrap items-center gap-2 text-sm font-medium text-blue-100">
+                  <p className="flex flex-wrap items-center gap-2 text-sm font-semibold text-emerald-50">
                     <span>{job.companyName || 'Confidential company'}</span>
                     <span className="hidden h-1 w-1 rounded-full bg-blue-200 sm:inline-block" />
                     <span>{formatDate(job.createdAt)}</span>
                   </p>
-                  <h1 className="mt-3 text-3xl font-semibold leading-tight tracking-tight text-white sm:text-5xl">
+                  <h1 className="mt-3 text-3xl font-semibold leading-tight tracking-normal text-white sm:text-5xl">
                     {job.title || 'Untitled role'}
                   </h1>
                   <div className="mt-5 flex flex-wrap gap-2">
@@ -330,16 +330,16 @@ const JobDetailsPage = () => {
 };
 
 const Pill = ({ icon: Icon, label }) => (
-  <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-white">
-    <Icon size={14} />
+  <span className="inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/16 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.18)]">
+    {React.createElement(Icon, { size: 14, 'aria-hidden': 'true' })}
     {label}
   </span>
 );
 
 const HeroMetric = ({ icon: Icon, label, value }) => (
-  <div className="rounded-2xl border border-white/10 bg-white/10 p-4">
-    <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-blue-100">
-      <Icon size={15} />
+  <div className="rounded-2xl border border-white/18 bg-white/14 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.16)]">
+    <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-emerald-50">
+      {React.createElement(Icon, { size: 15, 'aria-hidden': 'true' })}
       {label}
     </div>
     <p className="mt-2 text-base font-semibold text-white">{value}</p>
@@ -349,7 +349,7 @@ const HeroMetric = ({ icon: Icon, label, value }) => (
 const DetailRow = ({ icon: Icon, label, value }) => (
   <div className="flex items-start gap-3">
     <div className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-slate-600">
-      <Icon size={17} />
+      {React.createElement(Icon, { size: 17, 'aria-hidden': 'true' })}
     </div>
     <div className="min-w-0">
       <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">{label}</p>

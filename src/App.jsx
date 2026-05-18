@@ -38,6 +38,8 @@ import {
   EditAssessmentPage,
   TestInterface,
 } from './features/assessments/pages';
+import AdminDashboardPage from './features/admin/pages/AdminDashboardPage';
+import CandidateApplicationsPage from './features/applications/pages/CandidateApplicationsPage';
 
 /**
  * Main App Component with Routing
@@ -58,6 +60,7 @@ function AppContent() {
   const isJobsWorkspace =
     location.pathname === '/jobs' ||
     location.pathname === '/dashboard' ||
+    location.pathname === '/applications' ||
     location.pathname === '/candidate/assessments' ||
     location.pathname.startsWith('/test/') ||
     location.pathname === '/recruiter/dashboard' ||
@@ -68,6 +71,7 @@ function AppContent() {
     location.pathname === '/recruiter/assessments' ||
     location.pathname === '/recruiter/analytics' ||
     location.pathname === '/recruiter/assessments/create' ||
+    location.pathname === '/admin/dashboard' ||
     /^\/recruiter\/assessments\/[^/]+\/edit$/.test(location.pathname);
 
   return (
@@ -90,6 +94,11 @@ function AppContent() {
           <Route path="/dashboard" element={
             <ProtectedRoute role="candidate">
               <CandidateDashboardPage />
+            </ProtectedRoute>
+          } />
+          <Route path="/applications" element={
+            <ProtectedRoute role="candidate">
+              <CandidateApplicationsPage />
             </ProtectedRoute>
           } />
           <Route path="/profile" element={
@@ -166,6 +175,13 @@ function AppContent() {
             </ProtectedRoute>
           } />
           <Route path="/recruiter/jobs/:jobId" element={<JobDetailsPage />} />
+
+          {/* Admin Routes */}
+          <Route path="/admin/dashboard" element={
+            <ProtectedRoute role="admin">
+              <AdminDashboardPage />
+            </ProtectedRoute>
+          } />
 
           {/* 404 */}
           <Route path="*" element={<NotFoundPage />} />
