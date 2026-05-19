@@ -9,10 +9,11 @@ import {
   FileText,
   Search,
   Trophy,
+  Video,
 } from 'lucide-react';
 import Button from '../../../components/common/Button';
 import Badge from '../../../components/common/Badge';
-import { applicationService } from '../../../services';
+import { applicationService, interviewService } from '../../../services';
 import { useAuthContext } from '../../../context/useAuthContext';
 
 const statusSteps = ['APPLIED', 'SHORTLISTED', 'ASSESSMENT', 'INTERVIEW', 'HIRED'];
@@ -22,6 +23,7 @@ const CandidateApplicationsPage = () => {
   const navigate = useNavigate();
   const { logout } = useAuthContext();
   const [applications, setApplications] = useState([]);
+  const [interviewSessions, setInterviewSessions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
@@ -33,9 +35,13 @@ const CandidateApplicationsPage = () => {
       setLoading(true);
       setError('');
       try {
-        const response = await applicationService.getMyApplications();
+        const [response, interviewsResponse] = await Promise.all([
+          applicationService.getMyApplications(),
+          interviewService.getMySessions(),
+        ]);
         if (!ignore) {
           setApplications(response.data?.data || []);
+          setInterviewSessions(interviewsResponse.data || []);
         }
       } catch (err) {
         console.error('Candidate applications load error:', err);
@@ -80,6 +86,16 @@ const CandidateApplicationsPage = () => {
     return applications.filter((item) => normalizeStatus(item.status) === statusFilter);
   }, [applications, statusFilter]);
 
+  const interviewsByJobId = useMemo(() => {
+    return interviewSessions.reduce((map, session) => {
+      if (!map.has(session.jobId)) {
+        map.set(session.jobId, []);
+      }
+      map.get(session.jobId).push(session);
+      return map;
+    }, new Map());
+  }, [interviewSessions]);
+
   return (
     <div className="min-h-screen bg-[#f7f8fb] text-slate-900">
       <div className="border-b border-slate-200 bg-white">
@@ -116,6 +132,7 @@ const CandidateApplicationsPage = () => {
             <SidebarLink label="Find Jobs" path="/jobs" />
             <SidebarLink label="Applications" path="/applications" active count={applications.length} />
             <SidebarLink label="Assessments" path="/candidate/assessments" count={stats.assessments} />
+            <SidebarLink label="Interviews" path="/interviews" count={interviewSessions.length} />
             <SidebarLink label="Profile" path="/profile" />
           </nav>
         </aside>
@@ -160,7 +177,11 @@ const CandidateApplicationsPage = () => {
             ) : (
               <div className="divide-y divide-slate-100">
                 {filteredApplications.map((application) => (
-                  <ApplicationCard key={application.id} application={application} />
+                  <ApplicationCard
+                    key={application.id}
+                    application={application}
+                    interviewSessions={interviewsByJobId.get(application.jobId) || []}
+                  />
                 ))}
               </div>
             )}
@@ -171,10 +192,11 @@ const CandidateApplicationsPage = () => {
   );
 };
 
-const ApplicationCard = ({ application }) => {
+const ApplicationCard = ({ application, interviewSessions }) => {
   const status = normalizeStatus(application.status);
   const currentIndex = getProgressIndex(status);
   const isRejected = status === 'REJECTED';
+  const latestInterview = interviewSessions[0] || null;
 
   return (
     <article className="px-6 py-6">
@@ -205,6 +227,14 @@ const ApplicationCard = ({ application }) => {
               <Button>
                 Assessment
                 <ArrowRight size={16} />
+              </Button>
+            </Link>
+          )}
+          {latestInterview && (
+            <Link to={latestInterview.status === 'LIVE' ? `/interview/room/${latestInterview.roomToken}` : `/interview/join/${latestInterview.inviteToken}`}>
+              <Button variant={latestInterview.status === 'LIVE' ? 'primary' : 'outline'} className={latestInterview.status === 'LIVE' ? '' : 'bg-white'}>
+                <Video size={16} />
+                {latestInterview.status === 'LIVE' ? 'Join Interview' : 'View Interview'}
               </Button>
             </Link>
           )}
@@ -244,6 +274,31 @@ const ApplicationCard = ({ application }) => {
           tone={application.assessmentPassed === true ? 'success' : application.assessmentPassed === false ? 'danger' : 'default'}
         />
       </div>
+
+      {latestInterview && (
+        <div className={`mt-5 rounded-2xl border px-4 py-4 ${
+          latestInterview.status === 'LIVE'
+            ? 'border-emerald-200 bg-emerald-50'
+            : 'border-blue-200 bg-blue-50'
+        }`}>
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <p className={`text-sm font-semibold ${latestInterview.status === 'LIVE' ? 'text-emerald-900' : 'text-blue-900'}`}>
+                {latestInterview.status === 'LIVE' ? 'Interview started' : 'Interview scheduled'}
+              </p>
+              <p className={`mt-1 text-sm ${latestInterview.status === 'LIVE' ? 'text-emerald-700' : 'text-blue-700'}`}>
+                {latestInterview.title} • {new Date(latestInterview.scheduledStartAt).toLocaleString()}
+              </p>
+            </div>
+            <Link to={latestInterview.status === 'LIVE' ? `/interview/room/${latestInterview.roomToken}` : `/interview/join/${latestInterview.inviteToken}`}>
+              <Button>
+                <Video size={16} />
+                {latestInterview.status === 'LIVE' ? 'Join Now' : 'Waiting Room'}
+              </Button>
+            </Link>
+          </div>
+        </div>
+      )}
 
       {application.coverLetter && (
         <div className="mt-5 rounded-2xl border border-slate-200 bg-white px-4 py-4">

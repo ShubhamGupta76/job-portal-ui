@@ -8,3 +8,4 @@ export { dashboardService } from './dashboardService';
 export { profileService } from './profileService';
 export { applicationService } from './applicationService';
 export { assessmentService, getApiErrorMessage } from './assessmentService';
+export { default as interviewService } from '../features/interview/services/interviewService';

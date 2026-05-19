@@ -1,12 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { SquareMenu } from 'lucide-react';
+import { CalendarClock, Copy, SquareMenu, Video } from 'lucide-react';
 import Button from '../../../components/common/Button';
 import Badge from '../../../components/common/Badge';
 import Input from '../../../components/common/Input';
 import NotificationIcon from '../../../components/common/NotificationIcon';
 import { useAuthContext } from '../../../context/useAuthContext';
-import { applicationService, assessmentService, authService, recruiterService } from '../../../services';
+import { applicationService, assessmentService, authService, interviewService, recruiterService } from '../../../services';
 
 const statusTabs = [
   { key: 'ALL', label: 'All Applicants' },
@@ -35,6 +35,10 @@ const Applicants = () => {
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [resumeLoading, setResumeLoading] = useState(false);
   const [error, setError] = useState('');
+  const [interviewModalOpen, setInterviewModalOpen] = useState(false);
+  const [interviewSchedule, setInterviewSchedule] = useState(() => getDefaultInterviewSchedule());
+  const [interviewCreating, setInterviewCreating] = useState(false);
+  const [createdInterview, setCreatedInterview] = useState(null);
 
   useEffect(() => {
     let ignore = false;
@@ -222,6 +226,12 @@ const Applicants = () => {
 
   const handleStatusChange = async (nextStatus) => {
     if (!selectedApplication || !selectedJobId) return;
+    if (nextStatus === 'INTERVIEW') {
+      setCreatedInterview(null);
+      setInterviewSchedule(getDefaultInterviewSchedule());
+      setInterviewModalOpen(true);
+      return;
+    }
     if (selectedApplication.status === nextStatus) return;
 
     setUpdatingStatus(true);
@@ -257,6 +267,59 @@ const Applicants = () => {
     } finally {
       setUpdatingStatus(false);
     }
+  };
+
+  const scheduleInterview = async (event) => {
+    event.preventDefault();
+    if (!selectedApplication || !selectedJobId) return;
+
+    setInterviewCreating(true);
+    setError('');
+
+    try {
+      const title = interviewSchedule.title.trim()
+        || `${selectedApplication.jobTitle || selectedJob?.title || 'Job'} Interview`;
+      const response = await interviewService.createSession({
+        jobId: Number(selectedJobId),
+        candidateId: Number(selectedApplication.userId),
+        title,
+        scheduledStartAt: interviewSchedule.scheduledStartAt,
+        durationMinutes: Number(interviewSchedule.durationMinutes || 60),
+        roundType: interviewSchedule.roundType,
+        candidateCanJoinOnce: true,
+        recordingEnabled: interviewSchedule.recordingEnabled,
+        identityVerificationRequired: true,
+      });
+
+      const session = response.data;
+      setCreatedInterview(session);
+
+      const statusResponse = await applicationService.updateStatus(selectedApplication.id, 'INTERVIEW');
+      const updatedApplication = statusResponse.data?.data;
+      setApplications((current) =>
+        current.map((item) => (item.id === updatedApplication.id ? { ...item, ...updatedApplication } : item))
+      );
+    } catch (err) {
+      console.error('Unable to schedule interview:', err);
+      setError(err.response?.data?.message || err.message || 'Unable to schedule interview.');
+    } finally {
+      setInterviewCreating(false);
+    }
+  };
+
+  const startInterview = async () => {
+    if (!createdInterview?.roomToken) return;
+    try {
+      await interviewService.startSession(createdInterview.roomToken);
+      navigate(`/interview/room/${createdInterview.roomToken}`);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Unable to start interview.');
+    }
+  };
+
+  const copyInvite = async () => {
+    if (!createdInterview?.inviteUrl) return;
+    await navigator.clipboard.writeText(`${window.location.origin}${createdInterview.inviteUrl}`);
   };
 
   const openResume = async (download = false) => {
@@ -668,6 +731,14 @@ const Applicants = () => {
                         </Button>
                       ))}
                     </div>
+                    {selectedApplication.status === 'INTERVIEW' && (
+                      <div className="mt-4 rounded-2xl border border-blue-100 bg-blue-50 px-4 py-4">
+                        <p className="text-sm font-semibold text-blue-900">Interview stage is active</p>
+                        <p className="mt-1 text-sm text-blue-700">
+                          Use the Interview button to schedule a room. After scheduling, click Start Interview to alert the candidate and enter the live room.
+                        </p>
+                      </div>
+                    )}
                   </>
                 ) : (
                   <p className="text-sm text-slate-500">Select an applicant to inspect details.</p>
@@ -694,6 +765,125 @@ const Applicants = () => {
           </div>
         </section>
       </div>
+      {interviewModalOpen && selectedApplication && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 px-4 backdrop-blur-sm">
+          <div className="w-full max-w-2xl overflow-hidden rounded-[28px] bg-white shadow-2xl">
+            <div className="border-b border-slate-200 bg-slate-950 px-6 py-5 text-white">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-200">Schedule Interview</p>
+                  <h2 className="mt-2 text-2xl font-semibold">{selectedApplication.userName}</h2>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setInterviewModalOpen(false)}
+                  className="rounded-full border border-white/10 px-4 py-2 text-sm text-slate-200 hover:bg-white/10"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+
+            {!createdInterview ? (
+              <form onSubmit={scheduleInterview} className="space-y-4 p-6">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <label className="block md:col-span-2">
+                    <span className="mb-2 block text-sm font-semibold text-slate-700">Interview title</span>
+                    <input
+                      value={interviewSchedule.title}
+                      onChange={(event) => setInterviewSchedule((current) => ({ ...current, title: event.target.value }))}
+                      placeholder={`${selectedApplication.jobTitle || selectedJob?.title || 'Job'} Interview`}
+                      className="h-12 w-full rounded-2xl border border-slate-200 px-4 text-sm outline-none focus:border-blue-400"
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="mb-2 block text-sm font-semibold text-slate-700">Schedule date and time</span>
+                    <input
+                      type="datetime-local"
+                      required
+                      value={interviewSchedule.scheduledStartAt}
+                      onChange={(event) => setInterviewSchedule((current) => ({ ...current, scheduledStartAt: event.target.value }))}
+                      className="h-12 w-full rounded-2xl border border-slate-200 px-4 text-sm outline-none focus:border-blue-400"
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="mb-2 block text-sm font-semibold text-slate-700">Duration</span>
+                    <select
+                      value={interviewSchedule.durationMinutes}
+                      onChange={(event) => setInterviewSchedule((current) => ({ ...current, durationMinutes: event.target.value }))}
+                      className="h-12 w-full rounded-2xl border border-slate-200 px-4 text-sm outline-none focus:border-blue-400"
+                    >
+                      <option value="30">30 minutes</option>
+                      <option value="45">45 minutes</option>
+                      <option value="60">60 minutes</option>
+                      <option value="90">90 minutes</option>
+                    </select>
+                  </label>
+                  <label className="block">
+                    <span className="mb-2 block text-sm font-semibold text-slate-700">Round</span>
+                    <select
+                      value={interviewSchedule.roundType}
+                      onChange={(event) => setInterviewSchedule((current) => ({ ...current, roundType: event.target.value }))}
+                      className="h-12 w-full rounded-2xl border border-slate-200 px-4 text-sm outline-none focus:border-blue-400"
+                    >
+                      <option value="TECHNICAL">Technical</option>
+                      <option value="CODING">Coding</option>
+                      <option value="HR">HR</option>
+                      <option value="SYSTEM_DESIGN">System Design</option>
+                      <option value="FINAL">Final</option>
+                    </select>
+                  </label>
+                  <label className="flex items-center justify-between rounded-2xl border border-slate-200 px-4 py-3">
+                    <span className="text-sm font-semibold text-slate-700">Recording support</span>
+                    <input
+                      type="checkbox"
+                      checked={interviewSchedule.recordingEnabled}
+                      onChange={(event) => setInterviewSchedule((current) => ({ ...current, recordingEnabled: event.target.checked }))}
+                      className="h-4 w-4 accent-blue-600"
+                    />
+                  </label>
+                </div>
+
+                <div className="rounded-2xl bg-blue-50 px-4 py-4 text-sm text-blue-800">
+                  Candidate will receive an interview scheduled notification now. When you click Start Interview, the candidate gets an interview-started alert and can join.
+                </div>
+
+                <div className="flex justify-end gap-3">
+                  <Button type="button" variant="outline" className="bg-white" onClick={() => setInterviewModalOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button type="submit" loading={interviewCreating}>
+                    <CalendarClock size={16} />
+                    Schedule Interview
+                  </Button>
+                </div>
+              </form>
+            ) : (
+              <div className="space-y-5 p-6">
+                <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-4">
+                  <p className="font-semibold text-emerald-900">Interview scheduled successfully</p>
+                  <p className="mt-1 text-sm text-emerald-700">
+                    {new Date(createdInterview.scheduledStartAt).toLocaleString()} • {createdInterview.durationMinutes} minutes
+                  </p>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Button onClick={startInterview}>
+                    <Video size={16} />
+                    Start Interview
+                  </Button>
+                  <Button variant="outline" className="bg-white" onClick={copyInvite}>
+                    <Copy size={16} />
+                    Copy Student Invite
+                  </Button>
+                </div>
+                <Link to="/interviews" className="inline-flex text-sm font-semibold text-blue-600 hover:text-blue-700">
+                  Open all interview sessions
+                </Link>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -790,6 +980,19 @@ const extractTags = (application) => {
   }
 
   return tags.slice(0, 4);
+};
+
+const getDefaultInterviewSchedule = () => {
+  const date = new Date(Date.now() + 30 * 60 * 1000);
+  date.setSeconds(0, 0);
+  const offsetMs = date.getTimezoneOffset() * 60 * 1000;
+  return {
+    title: '',
+    scheduledStartAt: new Date(date.getTime() - offsetMs).toISOString().slice(0, 16),
+    durationMinutes: 60,
+    roundType: 'TECHNICAL',
+    recordingEnabled: false,
+  };
 };
 
 export default Applicants;

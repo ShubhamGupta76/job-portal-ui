@@ -40,6 +40,11 @@ import {
 } from './features/assessments/pages';
 import AdminDashboardPage from './features/admin/pages/AdminDashboardPage';
 import CandidateApplicationsPage from './features/applications/pages/CandidateApplicationsPage';
+import {
+  InterviewDashboardPage,
+  InterviewRoomPage,
+  InterviewWaitingRoomPage,
+} from './features/interview/pages';
 
 /**
  * Main App Component with Routing
@@ -61,6 +66,8 @@ function AppContent() {
     location.pathname === '/jobs' ||
     location.pathname === '/dashboard' ||
     location.pathname === '/applications' ||
+    location.pathname === '/interviews' ||
+    location.pathname.startsWith('/interview/') ||
     location.pathname === '/candidate/assessments' ||
     location.pathname.startsWith('/test/') ||
     location.pathname === '/recruiter/dashboard' ||
@@ -109,6 +116,21 @@ function AppContent() {
           <Route path="/notifications" element={
             <ProtectedRoute>
               <NotificationsPage />
+            </ProtectedRoute>
+          } />
+          <Route path="/interviews" element={
+            <ProtectedRoute>
+              <InterviewDashboardPage />
+            </ProtectedRoute>
+          } />
+          <Route path="/interview/join/:inviteToken" element={
+            <ProtectedRoute>
+              <InterviewWaitingRoomPage />
+            </ProtectedRoute>
+          } />
+          <Route path="/interview/room/:roomToken" element={
+            <ProtectedRoute>
+              <InterviewRoomPage />
             </ProtectedRoute>
           } />
           <Route path="/candidate/assessments" element={

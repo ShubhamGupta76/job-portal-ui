@@ -1,12 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { SquareMenu } from 'lucide-react';
+import { CalendarClock, SquareMenu, Video } from 'lucide-react';
 import Button from '../../../components/common/Button';
 import Badge from '../../../components/common/Badge';
 import Input from '../../../components/common/Input';
 import NotificationIcon from '../../../components/common/NotificationIcon';
 import { useAuthContext } from '../../../context/useAuthContext';
-import { applicationService, authService, dashboardService, profileService } from '../../../services';
+import { applicationService, authService, dashboardService, interviewService, profileService } from '../../../services';
 import { normalizeUserRole } from '../../../utils';
 
 const CandidateDashboardPage = () => {
@@ -15,6 +15,7 @@ const CandidateDashboardPage = () => {
   const [dashboard, setDashboard] = useState(null);
   const [profile, setProfile] = useState(null);
   const [viewer, setViewer] = useState(null);
+  const [interviewSessions, setInterviewSessions] = useState([]);
   const [resumeLoading, setResumeLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -28,10 +29,11 @@ const CandidateDashboardPage = () => {
       setError('');
 
       try {
-        const [dashboardRes, profileRes, viewerRes] = await Promise.allSettled([
+        const [dashboardRes, profileRes, viewerRes, interviewsRes] = await Promise.allSettled([
           dashboardService.getCandidateDashboard(),
           profileService.getProfile(),
           authService.getCurrentUser(),
+          interviewService.getMySessions(),
         ]);
 
         if (ignore) return;
@@ -56,6 +58,7 @@ const CandidateDashboardPage = () => {
         }
 
         setProfile(profileRes.status === 'fulfilled' ? profileRes.value.data?.data || null : null);
+        setInterviewSessions(interviewsRes.status === 'fulfilled' ? interviewsRes.value.data || [] : []);
       } catch (err) {
         console.error('Candidate dashboard load error:', err);
         if (!ignore) {
@@ -111,7 +114,17 @@ const CandidateDashboardPage = () => {
 
   const profileStrength = dashboard?.profileStrength || buildProfileStrengthFallback(profile);
   const activeApplications = dashboard?.activeApplications ?? dashboard?.appliedJobs ?? 0;
-  const upcomingInterviewsCount = dashboard?.upcomingInterviews ?? 0;
+  const scheduledInterviewSessions = useMemo(() => {
+    return interviewSessions
+      .filter((session) => !['ENDED', 'CANCELLED', 'EXPIRED'].includes(String(session.status || '').toUpperCase()))
+      .sort((first, second) => new Date(first.scheduledStartAt) - new Date(second.scheduledStartAt));
+  }, [interviewSessions]);
+
+  const liveInterviewSessions = useMemo(() => {
+    return scheduledInterviewSessions.filter((session) => String(session.status || '').toUpperCase() === 'LIVE');
+  }, [scheduledInterviewSessions]);
+
+  const upcomingInterviewsCount = scheduledInterviewSessions.length || dashboard?.upcomingInterviews || 0;
   const unreadNotifications = dashboard?.unreadNotifications ?? 0;
   const pendingAssessments = dashboard?.pendingAssessments ?? 0;
   const resumeAvailable = dashboard?.resumeAvailable ?? Boolean(profile?.resumePath);
@@ -229,6 +242,7 @@ const CandidateDashboardPage = () => {
             <SidebarLink label="Find Jobs" path="/jobs" />
             <SidebarLink label="Applications" path="/applications" count={activeApplications} />
             <SidebarLink label="Assessments" path="/candidate/assessments" count={pendingAssessments} />
+            <SidebarLink label="Interviews" path="/interviews" count={scheduledInterviewSessions.length} />
             <SidebarLink label="Profile" path="/profile" />
           </nav>
 
@@ -311,10 +325,14 @@ const CandidateDashboardPage = () => {
             <StatCard
               title="Upcoming Interviews"
               value={upcomingInterviewsCount}
-              subtitle={interviewSubtitle}
+              subtitle={liveInterviewSessions.length > 0 ? 'Recruiter started an interview' : interviewSubtitle}
               accent="green"
             />
           </div>
+
+          {scheduledInterviewSessions.length > 0 && (
+            <CandidateInterviewPanel sessions={scheduledInterviewSessions} />
+          )}
 
           <div className="mt-8 grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
             <div>
@@ -510,6 +528,60 @@ const RecommendedJobCard = ({ job }) => {
         <span>{formatSalary(job.minSalary, job.maxSalary)}</span>
       </div>
     </div>
+  );
+};
+
+const CandidateInterviewPanel = ({ sessions }) => {
+  const liveSessions = sessions.filter((session) => String(session.status || '').toUpperCase() === 'LIVE');
+  const nextSession = liveSessions[0] || sessions[0];
+  const isLive = String(nextSession.status || '').toUpperCase() === 'LIVE';
+
+  return (
+    <section className={`mt-8 overflow-hidden rounded-[28px] border shadow-sm ${
+      isLive ? 'border-emerald-200 bg-emerald-50' : 'border-blue-100 bg-white'
+    }`}>
+      <div className="flex flex-col gap-5 p-6 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex items-start gap-4">
+          <div className={`flex h-14 w-14 items-center justify-center rounded-2xl ${
+            isLive ? 'bg-emerald-600 text-white' : 'bg-blue-600 text-white'
+          }`}>
+            {isLive ? <Video size={24} /> : <CalendarClock size={24} />}
+          </div>
+          <div>
+            <p className={`text-sm font-semibold uppercase tracking-[0.2em] ${
+              isLive ? 'text-emerald-700' : 'text-blue-600'
+            }`}>
+              {isLive ? 'Interview Started' : 'Interview Scheduled'}
+            </p>
+            <h2 className="mt-2 text-3xl font-semibold text-slate-950">{nextSession.title}</h2>
+            <p className="mt-2 text-base text-slate-600">
+              {nextSession.jobTitle} • {new Date(nextSession.scheduledStartAt).toLocaleString()} • {nextSession.durationMinutes} min
+            </p>
+            {!isLive && (
+              <p className="mt-2 text-sm text-slate-500">
+                You can wait here. The Join button becomes active when recruiter starts the interview.
+              </p>
+            )}
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-3">
+          <Link to={isLive ? `/interview/room/${nextSession.roomToken}` : `/interview/join/${nextSession.inviteToken}`}>
+            <Button variant={isLive ? 'primary' : 'outline'} className={isLive ? '' : 'bg-white'}>
+              <Video size={16} />
+              {isLive ? 'Join Now' : 'Open Waiting Room'}
+            </Button>
+          </Link>
+          <Link to="/interviews">
+            <Button variant="outline" className="bg-white">All Interviews</Button>
+          </Link>
+        </div>
+      </div>
+      {sessions.length > 1 && (
+        <div className="border-t border-slate-200 bg-white/70 px-6 py-4">
+          <p className="text-sm font-semibold text-slate-700">{sessions.length - 1} more interview session{sessions.length > 2 ? 's' : ''} available.</p>
+        </div>
+      )}
+    </section>
   );
 };
 
