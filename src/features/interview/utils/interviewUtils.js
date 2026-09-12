@@ -1,6 +1,8 @@
 export const getInterviewSocketUrl = (roomToken) => {
-  const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api/v1';
-  const socketBase = apiBase.replace('/api/v1', '').replace(/^http/, 'ws');
+  const apiBase = import.meta.env.VITE_API_BASE_URL || '/api/v1';
+  const socketBase = apiBase.startsWith('http')
+    ? apiBase.replace('/api/v1', '').replace(/^http/, 'ws')
+    : `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}`;
   const token = localStorage.getItem('authToken') || '';
   return `${socketBase}/interview-signal?roomToken=${encodeURIComponent(roomToken)}&token=${encodeURIComponent(token)}`;
 };

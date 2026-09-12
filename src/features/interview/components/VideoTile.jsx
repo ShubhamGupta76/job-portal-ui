@@ -7,6 +7,7 @@ const VideoTile = ({ stream, name, muted = false, cameraOff = false, micMuted = 
   useEffect(() => {
     if (videoRef.current && stream) {
       videoRef.current.srcObject = stream;
+      videoRef.current.play().catch(() => {});
     }
   }, [stream]);
 

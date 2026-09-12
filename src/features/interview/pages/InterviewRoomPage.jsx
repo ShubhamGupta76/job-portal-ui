@@ -32,6 +32,9 @@ const InterviewRoomPage = () => {
   const [error, setError] = useState('');
   const [isScreenSharing, setIsScreenSharing] = useState(false);
   const [onlineParticipantIds, setOnlineParticipantIds] = useState([]);
+  const [signalVersion, setSignalVersion] = useState(0);
+  const [mediaRetryTick, setMediaRetryTick] = useState(0);
+  const pendingSignals = React.useRef([]);
   const timer = useInterviewTimer(session?.startedAt || session?.scheduledStartAt);
 
   const {
@@ -48,6 +51,7 @@ const InterviewRoomPage = () => {
   const handleSocketMessage = useCallback((message) => {
     if (['offer', 'answer', 'ice-candidate'].includes(message.type)) {
       pendingSignals.current.push(message);
+      setSignalVersion((current) => current + 1);
       return;
     }
     if (message.type === 'chat') {
@@ -67,22 +71,23 @@ const InterviewRoomPage = () => {
     onMessage: handleSocketMessage,
   });
 
-  const { remoteStreams, networkQuality, callPeer, handleSignal, replaceVideoTrack, closePeers } = useWebRTC({
+  const { remoteStreams, peerStates, networkQuality, callPeer, handleSignal, replaceVideoTrack, closePeers } = useWebRTC({
     localStream,
     currentUserId,
     sendSignal: send,
   });
 
-  const pendingSignals = React.useRef([]);
-
   useEffect(() => {
     const drain = async () => {
       while (pendingSignals.current.length) {
-        await handleSignal(pendingSignals.current.shift());
+        const signal = pendingSignals.current.shift();
+        await handleSignal(signal).catch((err) => {
+          console.error('Interview signal failed', signal?.type, err);
+        });
       }
     };
     drain();
-  }, [handleSignal, socketStatus]);
+  }, [handleSignal, signalVersion, socketStatus]);
 
   useEffect(() => {
     const load = async () => {
@@ -103,10 +108,22 @@ const InterviewRoomPage = () => {
 
   useEffect(() => {
     if (!session || !localStream || socketStatus !== 'connected') return;
+    const onlineIds = new Set(onlineParticipantIds.map((id) => String(id)));
+    const remoteStreamIds = new Set(remoteStreams.map((item) => String(item.userId)));
     session.participants
-      .filter((participant) => participant.userId !== currentUserId)
+      .filter((participant) => {
+        if (String(participant.userId) === String(currentUserId)) return false;
+        if (remoteStreamIds.has(String(participant.userId))) return false;
+        return onlineIds.has(String(participant.userId)) || participant.status === 'ONLINE';
+      })
       .forEach((participant) => callPeer(participant.userId));
-  }, [callPeer, currentUserId, localStream, session, socketStatus]);
+  }, [callPeer, currentUserId, localStream, mediaRetryTick, onlineParticipantIds, remoteStreams, session, socketStatus]);
+
+  useEffect(() => {
+    if (!session || !localStream || socketStatus !== 'connected') return undefined;
+    const id = window.setInterval(() => setMediaRetryTick((current) => current + 1), 4000);
+    return () => window.clearInterval(id);
+  }, [localStream, session, socketStatus]);
 
   useEffect(() => {
     if (!session) return;
@@ -217,8 +234,13 @@ const InterviewRoomPage = () => {
               />
             ))}
             {remoteTiles.length === 0 && (
-              <div className="flex min-h-[220px] items-center justify-center rounded-lg border border-dashed border-white/15 bg-white/[0.04] text-center text-slate-400">
-                Waiting for another participant to connect...
+              <div className="flex min-h-[220px] flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-white/15 bg-white/[0.04] px-4 text-center text-slate-400">
+                <span>Waiting for another participant media...</span>
+                {Object.entries(peerStates).map(([userId, state]) => (
+                  <span key={userId} className="text-xs text-cyan-200">
+                    Peer {userId}: {state}
+                  </span>
+                ))}
               </div>
             )}
           </div>
@@ -229,7 +251,7 @@ const InterviewRoomPage = () => {
           <ParticipantSidebar
             participants={(session?.participants || []).map((participant) => ({
               ...participant,
-              status: onlineParticipantIds.includes(participant.userId) ? 'ONLINE' : participant.status,
+              status: onlineParticipantIds.map((id) => String(id)).includes(String(participant.userId)) ? 'ONLINE' : participant.status,
             }))}
             currentUserId={currentUserId}
             canManage={canEnd}

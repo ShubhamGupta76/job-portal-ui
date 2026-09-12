@@ -5,7 +5,7 @@ import axios from 'axios';
  * Handles API calls, authentication, and error formatting
  */
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api/v1';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api/v1';
 
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
@@ -29,7 +29,7 @@ const isTokenExpired = (token) => {
     if (!decoded?.exp) return false;
 
     return decoded.exp * 1000 <= Date.now();
-  } catch (error) {
+  } catch {
     return true;
   }
 };
