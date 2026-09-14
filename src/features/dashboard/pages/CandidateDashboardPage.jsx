@@ -243,6 +243,11 @@ const CandidateDashboardPage = () => {
             <SidebarLink label="Applications" path="/applications" count={activeApplications} />
             <SidebarLink label="Assessments" path="/candidate/assessments" count={pendingAssessments} />
             <SidebarLink label="Interviews" path="/interviews" count={scheduledInterviewSessions.length} />
+            <SidebarLink label="Job Alerts" path="/dashboard/alerts" />
+            <SidebarLink label="Recommendations" path="/candidate/recommendations" />
+            <SidebarLink label="Resumes" path="/candidate/resumes" />
+            <SidebarLink label="Activity" path="/candidate/activity" />
+            <SidebarLink label="Analytics" path="/candidate/analytics" />
             <SidebarLink label="Profile" path="/profile" />
           </nav>
 
@@ -338,7 +343,7 @@ const CandidateDashboardPage = () => {
             <div>
               <div className="mb-5 flex items-center justify-between">
                 <h2 className="text-4xl font-semibold text-slate-900">Recommended for You</h2>
-                <Link to="/jobs" className="text-base font-medium text-blue-600 hover:text-blue-700">View All Jobs</Link>
+                <Link to="/candidate/recommendations" className="text-base font-medium text-blue-600 hover:text-blue-700">View All Recommendations</Link>
               </div>
               {recommendedJobs.length === 0 ? (
                 <div className="rounded-[28px] border border-slate-200 bg-white p-8 text-slate-500 shadow-sm">
@@ -416,7 +421,8 @@ const CandidateDashboardPage = () => {
                   />
                   <ActionTile label="Job Search" to="/jobs" />
                   <ActionTile label={pendingAssessments > 0 ? `Take Test (${pendingAssessments})` : 'Assessments'} to="/candidate/assessments" />
-                  <ActionTile label={unreadNotifications > 0 ? `Alerts (${unreadNotifications})` : 'Alerts'} to="/notifications" />
+                  <ActionTile label={unreadNotifications > 0 ? `Notifications (${unreadNotifications})` : 'Notifications'} to="/notifications" />
+                  <ActionTile label="Job Alerts" to="/dashboard/alerts" />
                 </div>
               </div>
 
@@ -523,6 +529,7 @@ const RecommendedJobCard = ({ job }) => {
           ))}
         </div>
       )}
+      {typeof job.matchScore === 'number' && <MatchSummary job={job} />}
       <div className="mt-5 flex items-center justify-between border-t border-slate-100 pt-4 text-sm text-slate-500">
         <span>{job.location || 'Remote'}</span>
         <span>{formatSalary(job.minSalary, job.maxSalary)}</span>
@@ -530,6 +537,25 @@ const RecommendedJobCard = ({ job }) => {
     </div>
   );
 };
+
+const MatchSummary = ({ job }) => (
+  <div className="mt-4 rounded-2xl border border-emerald-100 bg-emerald-50/70 p-4">
+    <div className="flex items-center justify-between gap-3">
+      <span className="text-sm font-semibold text-emerald-900">{job.matchScore}% match</span>
+      <span className="text-xs font-medium text-emerald-700">Why this job fits</span>
+    </div>
+    <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-emerald-800 sm:grid-cols-5">
+      <span>Skills {job.skillsScore ?? 0}/50</span>
+      <span>Experience {job.experienceScore ?? 0}/20</span>
+      <span>Location {job.locationScore ?? 0}/10</span>
+      <span>Preferences {job.preferenceScore ?? 0}/15</span>
+      <span>Profile {job.profileScore ?? 0}/5</span>
+    </div>
+    {job.missingSkills?.length > 0 && (
+      <p className="mt-3 text-xs text-emerald-800">Missing: {job.missingSkills.join(', ')}</p>
+    )}
+  </div>
+);
 
 const CandidateInterviewPanel = ({ sessions }) => {
   const liveSessions = sessions.filter((session) => String(session.status || '').toUpperCase() === 'LIVE');

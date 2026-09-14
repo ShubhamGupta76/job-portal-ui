@@ -7,6 +7,7 @@ import {
   CalendarDays,
   CheckCircle2,
   Clock3,
+  Flag,
   IndianRupee,
   MapPin,
   Send,
@@ -15,8 +16,10 @@ import {
 } from 'lucide-react';
 import Button from '../../../components/common/Button';
 import Badge from '../../../components/common/Badge';
+import VerificationBadge from '../../../components/common/VerificationBadge';
+import ReportModal from '../../../components/common/ReportModal';
 import Card from '../../../components/common/Card';
-import { bookmarkService, jobService } from '../../../services';
+import { bookmarkService, jobService, resumeLibraryService } from '../../../services';
 import { useAuthContext } from '../../../context/useAuthContext';
 
 const SECTION_LABELS = [
@@ -41,6 +44,11 @@ const JobDetailsPage = () => {
   const [showApplicationForm, setShowApplicationForm] = useState(false);
   const [resumeFile, setResumeFile] = useState(null);
   const [coverLetter, setCoverLetter] = useState('');
+  const [resumeLibrary, setResumeLibrary] = useState([]);
+  const [resumeLibraryLoading, setResumeLibraryLoading] = useState(false);
+  const [resumeMode, setResumeMode] = useState('upload');
+  const [selectedResumeId, setSelectedResumeId] = useState(null);
+  const [showReportModal, setShowReportModal] = useState(false);
 
   useEffect(() => {
     const loadJob = async () => {
@@ -69,6 +77,32 @@ const JobDetailsPage = () => {
     if (jobId) loadJob();
   }, [jobId, isLoggedIn, userRole]);
 
+  useEffect(() => {
+    if (!showApplicationForm || !isLoggedIn || userRole !== 'candidate') return;
+    let ignore = false;
+    const loadResumeLibrary = async () => {
+      setResumeLibraryLoading(true);
+      try {
+        const response = await resumeLibraryService.list();
+        if (ignore) return;
+        const items = response.data?.data || [];
+        setResumeLibrary(items);
+        if (items.length > 0) {
+          setResumeMode('library');
+          setSelectedResumeId((current) => current || items.find((item) => item.primary)?.id || items[0].id);
+        } else {
+          setResumeMode('upload');
+        }
+      } catch {
+        if (!ignore) setResumeMode('upload');
+      } finally {
+        if (!ignore) setResumeLibraryLoading(false);
+      }
+    };
+    loadResumeLibrary();
+    return () => { ignore = true; };
+  }, [showApplicationForm, isLoggedIn, userRole]);
+
   const skills = useMemo(() => {
     return job?.skills
       ? job.skills.split(',').map((item) => item.trim()).filter(Boolean)
@@ -88,7 +122,11 @@ const JobDetailsPage = () => {
       navigate('/login');
       return;
     }
-    if (!resumeFile) {
+    if (resumeMode === 'library' && !selectedResumeId) {
+      setError('Please choose a resume from your library before submitting.');
+      return;
+    }
+    if (resumeMode === 'upload' && !resumeFile) {
       setError('Please attach your resume before submitting.');
       return;
     }
@@ -98,7 +136,8 @@ const JobDetailsPage = () => {
     try {
       await jobService.applyJob({
         jobId: Number(jobId),
-        resume: resumeFile,
+        resume: resumeMode === 'upload' ? resumeFile : undefined,
+        resumeDocumentId: resumeMode === 'library' ? selectedResumeId : undefined,
         coverLetter: coverLetter.trim(),
         source: 'CAREER_SITE',
       });
@@ -178,6 +217,7 @@ const JobDetailsPage = () => {
                 <div className="min-w-0">
                   <p className="flex flex-wrap items-center gap-2 text-sm font-semibold text-emerald-50">
                     <span>{job.companyName || 'Confidential company'}</span>
+                    {job.companyVerificationStatus === 'VERIFIED' && <VerificationBadge status="VERIFIED" />}
                     <span className="hidden h-1 w-1 rounded-full bg-blue-200 sm:inline-block" />
                     <span>{formatDate(job.createdAt)}</span>
                   </p>
@@ -225,9 +265,28 @@ const JobDetailsPage = () => {
                 <DetailRow label="Company" value={job.companyName || 'Confidential company'} icon={BriefcaseBusiness} />
                 <DetailRow label="Location" value={job.location || 'Remote'} icon={MapPin} />
               </div>
+
+              {isCandidateView && isLoggedIn && (
+                <button
+                  type="button"
+                  onClick={() => setShowReportModal(true)}
+                  className="mt-4 flex items-center gap-1.5 text-xs font-medium text-slate-400 hover:text-red-500"
+                >
+                  <Flag size={13} /> Report this job
+                </button>
+              )}
             </aside>
           </div>
         </section>
+
+        {showReportModal && (
+          <ReportModal
+            targetType="JOB"
+            targetId={job.id}
+            targetLabel="this job"
+            onClose={() => setShowReportModal(false)}
+          />
+        )}
 
         {showApplicationForm && isCandidateView && (
           <Card className="mt-6 overflow-hidden border-blue-100 p-0 shadow-[0_18px_50px_rgba(37,99,235,0.10)]">
@@ -238,12 +297,50 @@ const JobDetailsPage = () => {
             <form onSubmit={handleApply} className="space-y-4 p-6">
               <div>
                 <label className="mb-2 block text-sm font-semibold text-slate-700">Resume</label>
-                <input
-                  type="file"
-                  accept=".pdf,.doc,.docx"
-                  onChange={(event) => setResumeFile(event.target.files?.[0] || null)}
-                  className="w-full rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-4 text-sm text-slate-600 file:mr-4 file:rounded-xl file:border-0 file:bg-blue-600 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white"
-                />
+                {resumeLibraryLoading ? (
+                  <p className="text-sm text-slate-500">Loading your resumes...</p>
+                ) : (
+                  <>
+                    {resumeLibrary.length > 0 && (
+                      <div className="mb-3 flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setResumeMode('library')}
+                          className={`rounded-full px-4 py-1.5 text-xs font-semibold ${resumeMode === 'library' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600'}`}
+                        >
+                          Choose from library
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setResumeMode('upload')}
+                          className={`rounded-full px-4 py-1.5 text-xs font-semibold ${resumeMode === 'upload' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600'}`}
+                        >
+                          Upload new
+                        </button>
+                      </div>
+                    )}
+                    {resumeMode === 'library' && resumeLibrary.length > 0 ? (
+                      <select
+                        value={selectedResumeId || ''}
+                        onChange={(event) => setSelectedResumeId(Number(event.target.value))}
+                        className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700"
+                      >
+                        {resumeLibrary.map((resume) => (
+                          <option key={resume.id} value={resume.id}>
+                            {resume.label}{resume.primary ? ' (Primary)' : ''}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input
+                        type="file"
+                        accept=".pdf,.doc,.docx"
+                        onChange={(event) => setResumeFile(event.target.files?.[0] || null)}
+                        className="w-full rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-4 text-sm text-slate-600 file:mr-4 file:rounded-xl file:border-0 file:bg-blue-600 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white"
+                      />
+                    )}
+                  </>
+                )}
               </div>
               <div>
                 <label className="mb-2 block text-sm font-semibold text-slate-700">Cover Letter</label>
@@ -302,6 +399,33 @@ const JobDetailsPage = () => {
                 )) : <p className="text-sm text-slate-500">No specific skills listed.</p>}
               </div>
             </Card>
+
+            {typeof job.matchScore === 'number' && (
+              <Card className="border-emerald-100 bg-emerald-50/70 p-6 shadow-sm sm:p-8">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-emerald-700">Transparent match</p>
+                    <h2 className="mt-2 text-3xl font-semibold text-emerald-950">{job.matchScore}% match</h2>
+                  </div>
+                  <Sparkles className="text-emerald-600" size={26} />
+                </div>
+                <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                  <MatchPoint label="Skills" value={`${job.skillsScore ?? 0}/50`} />
+                  <MatchPoint label="Experience" value={`${job.experienceScore ?? 0}/20`} />
+                  <MatchPoint label="Location" value={`${job.locationScore ?? 0}/10`} />
+                  <MatchPoint label="Preferences" value={`${job.preferenceScore ?? 0}/15`} />
+                  <MatchPoint label="Profile" value={`${job.profileScore ?? 0}/5`} />
+                </div>
+                {job.matchReasons?.length > 0 && (
+                  <ul className="mt-5 space-y-2 text-sm text-emerald-900">
+                    {job.matchReasons.map((reason) => <li key={reason}>{reason}</li>)}
+                  </ul>
+                )}
+                {job.missingSkills?.length > 0 && (
+                  <p className="mt-4 text-sm text-emerald-800">Skills to strengthen: {job.missingSkills.join(', ')}</p>
+                )}
+              </Card>
+            )}
           </section>
 
           <aside className="space-y-6 lg:sticky lg:top-6 lg:self-start">
@@ -328,6 +452,13 @@ const JobDetailsPage = () => {
     </div>
   );
 };
+
+const MatchPoint = ({ label, value }) => (
+  <div className="rounded-xl border border-emerald-100 bg-white/70 px-3 py-2">
+    <span className="text-xs text-emerald-700">{label}</span>
+    <span className="ml-2 text-sm font-semibold text-emerald-950">{value}</span>
+  </div>
+);
 
 const Pill = ({ icon: Icon, label }) => (
   <span className="inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/16 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.18)]">

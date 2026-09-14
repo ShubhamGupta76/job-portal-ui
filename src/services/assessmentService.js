@@ -102,7 +102,6 @@ export const assessmentService = {
   },
   startAssessment: async (assessmentId) => {
     try {
-      console.log("Starting assessment:", assessmentId);
       const response = await apiClient.post('/test-sessions/start', {
         assessmentId,
         deviceFingerprint: getDeviceFingerprint(),

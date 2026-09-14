@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import VerificationBadge from '../../../components/common/VerificationBadge';
 
 const logoPalette = [
   { bg: 'bg-blue-50', text: 'text-blue-700' },
@@ -84,7 +85,10 @@ const JobCard = ({ job }) => {
 
       <div className="text-center">
         <h3 className="text-[2rem] font-semibold leading-tight text-slate-900">{title}</h3>
-        <p className="mt-3 text-xl text-slate-500">{companyName}</p>
+        <p className="mt-3 flex items-center justify-center gap-2 text-xl text-slate-500">
+          {companyName}
+          {job.companyVerificationStatus === 'VERIFIED' && <VerificationBadge status="VERIFIED" />}
+        </p>
       </div>
 
       {skills.length > 0 && (
@@ -97,6 +101,18 @@ const JobCard = ({ job }) => {
               {skill}
             </span>
           ))}
+        </div>
+      )}
+
+      {typeof job?.matchScore === 'number' && (
+        <div className="mt-5 rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3">
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-sm font-semibold text-emerald-900">{job.matchScore}% match</span>
+            <span className="text-xs text-emerald-700">{job.matchingSkills?.length || 0} skills matched</span>
+          </div>
+          {job.missingSkills?.length > 0 && (
+            <p className="mt-1 text-xs text-emerald-700">Missing: {job.missingSkills.join(', ')}</p>
+          )}
         </div>
       )}
 

@@ -16,4 +16,5 @@ export const profileService = {
       },
     });
   },
+  recordProfileView: (userId) => apiClient.post(`/profile/${userId}/view`),
 };

@@ -17,6 +17,7 @@ const SignupPage = () => {
   });
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
   const navigate = useNavigate();
 
   const handleChange = (e) => {
@@ -59,6 +60,10 @@ const SignupPage = () => {
 
     if (userType === 'recruiter' && !formData.company) {
       newErrors.company = 'Company name is required';
+    }
+
+    if (!acceptedTerms) {
+      newErrors.terms = 'You must agree to the platform terms and privacy policy';
     }
 
     setErrors(newErrors);
@@ -233,13 +238,20 @@ const SignupPage = () => {
             <label className="flex cursor-pointer items-start gap-3 rounded-[20px] border border-slate-200 bg-slate-50 px-4 py-4">
               <input
                 type="checkbox"
-                required
+                checked={acceptedTerms}
+                onChange={(e) => {
+                  setAcceptedTerms(e.target.checked);
+                  if (e.target.checked) {
+                    setErrors((prev) => ({ ...prev, terms: '' }));
+                  }
+                }}
                 className="mt-1 h-4 w-4 rounded accent-blue-600"
               />
               <span className="text-sm text-slate-600">
                 I agree to the platform terms and privacy policy.
               </span>
             </label>
+            {errors.terms && <p className="text-sm text-red-600">{errors.terms}</p>}
 
             <Button type="submit" loading={loading} className="w-full">
               Create Account

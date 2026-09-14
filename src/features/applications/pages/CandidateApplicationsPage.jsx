@@ -264,6 +264,29 @@ const ApplicationCard = ({ application, interviewSessions }) => {
         )}
       </div>
 
+      {application.timeline?.length > 0 && (
+        <div className="mt-5 rounded-[24px] border border-slate-200 bg-white px-4 py-5">
+          <div className="flex items-center justify-between gap-3">
+            <h4 className="text-sm font-semibold text-slate-900">Application activity</h4>
+            <span className="text-xs text-slate-400">{application.timeline.length} event{application.timeline.length === 1 ? '' : 's'}</span>
+          </div>
+          <div className="mt-4 space-y-4">
+            {application.timeline.map((event, index) => (
+              <div key={event.id || `${event.status}-${index}`} className="flex gap-3">
+                <div className="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full bg-blue-600" />
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-slate-800">{formatLabel(event.status)}</p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    {event.note || 'Application updated'}{event.actorName ? ` by ${event.actorName}` : ''}
+                  </p>
+                  <p className="mt-1 text-xs text-slate-400">{formatDateTime(event.timestamp)}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="mt-5 grid gap-4 lg:grid-cols-3">
         <InfoTile label="Resume" value={application.resumePath ? 'Submitted' : 'Not attached'} icon={FileText} />
         <InfoTile label="Assessment" value={application.assessmentTitle || 'Not assigned'} icon={ClipboardList} />
@@ -420,6 +443,17 @@ const formatDate = (dateString) => {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
+  });
+};
+
+const formatDateTime = (dateString) => {
+  if (!dateString) return 'recently';
+  return new Date(dateString).toLocaleString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
   });
 };
 

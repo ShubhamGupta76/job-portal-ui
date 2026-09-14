@@ -69,15 +69,12 @@ export const JobProvider = ({ children }) => {
         page: Math.max(0, pagination.page - 1),
         size: pagination.size,
       });
-      console.log('RAW API:', response);
 
       const jobsArray =
         response?.data?.data ??
         response?.data?.content ??
         response?.data ??
         [];
-
-      console.log('PARSED JOBS:', jobsArray);
 
       const { jobs: jobsData, totalJobs: resolvedTotalJobs } = extractJobsPayload({
         data: jobsArray,
@@ -129,10 +126,6 @@ export const JobProvider = ({ children }) => {
   useEffect(() => {
     fetchFilterOptions();
   }, [fetchFilterOptions]);
-
-  useEffect(() => {
-    console.log('Jobs state:', jobs);
-  }, [jobs]);
 
   const updateFilters = (newFilters) => {
     setFilters((prev) => ({ ...prev, ...newFilters }));

@@ -1,12 +1,30 @@
-import React, { useEffect, useImperativeHandle, useRef } from 'react';
+import React, { useCallback, useEffect, useImperativeHandle, useRef } from 'react';
 
 const Proctoring = React.forwardRef(({ enabled = false, onEvent }, ref) => {
   const videoRef = useRef(null);
   const streamRef = useRef(null);
 
+  const startProctoring = useCallback(async () => {
+    if (streamRef.current) {
+      return true;
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      streamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+      }
+      return true;
+    } catch (error) {
+      onEvent?.('CAMERA_DETECTED_MISSING', 80, { error: error.message });
+      return false;
+    }
+  }, [onEvent]);
+
   useImperativeHandle(ref, () => ({
     startProctoring,
-  }));
+  }), [startProctoring]);
 
   useEffect(() => {
     if (!enabled) return undefined;
@@ -75,24 +93,6 @@ const Proctoring = React.forwardRef(({ enabled = false, onEvent }, ref) => {
       streamRef.current?.getTracks?.().forEach((track) => track.stop());
     };
   }, [enabled, onEvent]);
-
-  async function startProctoring() {
-    if (streamRef.current) {
-      return true;
-    }
-
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-      streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-      }
-      return true;
-    } catch (error) {
-      onEvent?.('CAMERA_DETECTED_MISSING', 80, { error: error.message });
-      return false;
-    }
-  }
 
   useEffect(() => {
     if (!enabled) return undefined;

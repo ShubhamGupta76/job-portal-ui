@@ -38,6 +38,9 @@ export const jobService = {
     if (applicationData.resume) {
       formData.append('resume', applicationData.resume);
     }
+    if (applicationData.resumeDocumentId) {
+      formData.append('resumeDocumentId', applicationData.resumeDocumentId);
+    }
     return apiClient.post('/applications', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',

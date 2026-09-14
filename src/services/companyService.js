@@ -5,4 +5,6 @@ export const companyService = {
   getMyCompany: () => apiClient.get('/companies/me'),
   createCompany: (payload) => apiClient.post('/companies', payload),
   updateMyCompany: (payload) => apiClient.put('/companies/me', payload),
+  getVerification: (companyId) => apiClient.get(`/companies/${companyId}/verification`),
+  submitVerification: (companyId, payload) => apiClient.post(`/companies/${companyId}/verification`, payload),
 };

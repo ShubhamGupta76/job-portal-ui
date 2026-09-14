@@ -5,4 +5,6 @@ export const notificationService = {
   getUnreadCount: () => apiClient.get('/notifications/count'),
   markAsRead: (notificationId) => apiClient.put(`/notifications/${notificationId}/read`),
   markAllAsRead: () => apiClient.put('/notifications/read-all'),
+  getPreferences: () => apiClient.get('/notifications/preferences'),
+  updatePreferences: (preferences) => apiClient.put('/notifications/preferences', preferences),
 };

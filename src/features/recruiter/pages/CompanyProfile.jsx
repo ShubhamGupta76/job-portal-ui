@@ -1,19 +1,23 @@
 import React, { useEffect, useState } from 'react';
-import { Building2, Globe2, MapPin, Save, Sparkles, UsersRound } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Building2, Globe2, MapPin, Save, ShieldCheck, Sparkles, UsersRound } from 'lucide-react';
 import Card from '../../../components/common/Card';
 import Button from '../../../components/common/Button';
 import Input from '../../../components/common/Input';
+import VerificationBadge from '../../../components/common/VerificationBadge';
 import RecruiterLayout from '../components/RecruiterLayout';
 import { recruiterService } from '../../../services';
 
 const CompanyProfile = () => {
   const [company, setCompany] = useState({
+    id: null,
     name: '',
     description: '',
     website: '',
     location: '',
     industry: '',
     size: '',
+    verificationStatus: 'UNVERIFIED',
   });
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -28,12 +32,14 @@ const CompanyProfile = () => {
         const response = await recruiterService.getCompanyProfile();
         const profile = response.data?.data || {};
         setCompany({
+          id: profile.id || null,
           name: profile.name || '',
           description: profile.description || '',
           website: profile.website || '',
           location: profile.location || '',
           industry: profile.industry || '',
           size: profile.size || '',
+          verificationStatus: profile.verificationStatus || 'UNVERIFIED',
         });
       } catch (err) {
         if (err.response?.status !== 404) {
@@ -59,7 +65,8 @@ const CompanyProfile = () => {
     setSuccess('');
 
     try {
-      await recruiterService.updateCompanyProfile(company);
+      const { name, description, website, location, industry, size } = company;
+      await recruiterService.updateCompanyProfile({ name, description, website, location, industry, size });
       setSuccess('Company profile updated successfully.');
     } catch (err) {
       setError(err.response?.data?.message || 'Unable to save company profile.');
@@ -177,6 +184,31 @@ const CompanyProfile = () => {
                 <p className="mt-2 line-clamp-4 text-sm leading-6 text-slate-600">
                   {company.description || 'Add a short company description so candidates can understand your culture and work.'}
                 </p>
+              </div>
+            </div>
+          </Card>
+
+          <Card className="border-0 bg-white p-6 shadow-[0_20px_55px_rgba(15,23,42,0.08)]">
+            <div className="flex items-start gap-4">
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-900 text-white">
+                <ShieldCheck size={21} aria-hidden="true" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h3 className="text-xl font-semibold text-slate-950">Company verification</h3>
+                  <VerificationBadge status={company.verificationStatus} />
+                </div>
+                <p className="mt-2 text-sm leading-6 text-slate-600">
+                  Verified companies show a trust badge to candidates on job listings and profiles.
+                </p>
+                {company.id && (
+                  <Link
+                    to="/recruiter/company/verification"
+                    className="mt-3 inline-flex text-sm font-semibold text-blue-600 hover:text-blue-700"
+                  >
+                    {company.verificationStatus === 'VERIFIED' ? 'View verification details' : 'Manage verification'}
+                  </Link>
+                )}
               </div>
             </div>
           </Card>

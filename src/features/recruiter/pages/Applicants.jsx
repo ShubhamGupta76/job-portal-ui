@@ -1,12 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { CalendarClock, Copy, SquareMenu, Video } from 'lucide-react';
+import { CalendarClock, Columns3, Copy, GitCompare, LayoutGrid, SquareMenu, Video, X } from 'lucide-react';
 import Button from '../../../components/common/Button';
 import Badge from '../../../components/common/Badge';
 import Input from '../../../components/common/Input';
 import NotificationIcon from '../../../components/common/NotificationIcon';
 import { useAuthContext } from '../../../context/useAuthContext';
-import { applicationService, assessmentService, authService, interviewService, recruiterService } from '../../../services';
+import { applicationService, assessmentService, authService, interviewService, profileService, recruiterService } from '../../../services';
 
 const statusTabs = [
   { key: 'ALL', label: 'All Applicants' },
@@ -18,6 +18,17 @@ const statusTabs = [
 ];
 
 const statusActions = ['SHORTLISTED', 'ASSESSMENT', 'INTERVIEW', 'HIRED', 'REJECTED'];
+
+const kanbanColumns = [
+  { key: 'APPLIED', label: 'New' },
+  { key: 'SHORTLISTED', label: 'Screening' },
+  { key: 'ASSESSMENT', label: 'Assessment' },
+  { key: 'INTERVIEW', label: 'Interview' },
+  { key: 'HIRED', label: 'Hired' },
+  { key: 'REJECTED', label: 'Rejected' },
+];
+
+const MAX_COMPARE = 3;
 
 const Applicants = () => {
   const navigate = useNavigate();
@@ -39,6 +50,9 @@ const Applicants = () => {
   const [interviewSchedule, setInterviewSchedule] = useState(() => getDefaultInterviewSchedule());
   const [interviewCreating, setInterviewCreating] = useState(false);
   const [createdInterview, setCreatedInterview] = useState(null);
+  const [viewMode, setViewMode] = useState('list');
+  const [compareIds, setCompareIds] = useState([]);
+  const [compareOpen, setCompareOpen] = useState(false);
 
   useEffect(() => {
     let ignore = false;
@@ -172,6 +186,12 @@ const Applicants = () => {
     [applications, filteredApplications, selectedApplicationId]
   );
 
+  useEffect(() => {
+    if (selectedApplication?.userId) {
+      profileService.recordProfileView(selectedApplication.userId).catch(() => {});
+    }
+  }, [selectedApplication?.userId]);
+
   const selectedJob = useMemo(
     () => jobs.find((job) => job.id === selectedJobId) || null,
     [jobs, selectedJobId]
@@ -224,15 +244,16 @@ const Applicants = () => {
     navigate('/login');
   };
 
-  const handleStatusChange = async (nextStatus) => {
-    if (!selectedApplication || !selectedJobId) return;
+  const applyStatusUpdate = async (application, nextStatus, assessmentIdOverride) => {
+    if (!application || !selectedJobId) return;
     if (nextStatus === 'INTERVIEW') {
+      setSelectedApplicationId(application.id);
       setCreatedInterview(null);
       setInterviewSchedule(getDefaultInterviewSchedule());
       setInterviewModalOpen(true);
       return;
     }
-    if (selectedApplication.status === nextStatus) return;
+    if (application.status === nextStatus) return;
 
     setUpdatingStatus(true);
     setError('');
@@ -241,19 +262,21 @@ const Applicants = () => {
       let response;
 
       if (nextStatus === 'ASSESSMENT') {
-        const assessmentId = selectedAssessmentId
-          ? Number(selectedAssessmentId)
-          : assignableAssessments[0]?.id;
+        const assessmentId = assessmentIdOverride
+          ? Number(assessmentIdOverride)
+          : application.id === selectedApplication?.id && selectedAssessmentId
+            ? Number(selectedAssessmentId)
+            : assignableAssessments[0]?.id;
         if (!assessmentId) {
           throw new Error('Create and publish an assessment before assigning a candidate.');
         }
         response = await applicationService.assignAssessment(
           selectedJobId,
-          selectedApplication.userId,
+          application.userId,
           assessmentId
         );
       } else {
-        response = await applicationService.updateStatus(selectedApplication.id, nextStatus);
+        response = await applicationService.updateStatus(application.id, nextStatus);
       }
 
       const updatedApplication = response.data?.data;
@@ -268,6 +291,25 @@ const Applicants = () => {
       setUpdatingStatus(false);
     }
   };
+
+  const handleStatusChange = (nextStatus) => applyStatusUpdate(selectedApplication, nextStatus);
+
+  const toggleCompare = (applicationId) => {
+    setCompareIds((current) => {
+      if (current.includes(applicationId)) {
+        return current.filter((id) => id !== applicationId);
+      }
+      if (current.length >= MAX_COMPARE) return current;
+      return [...current, applicationId];
+    });
+  };
+
+  const compareApplications = useMemo(
+    () => compareIds
+      .map((id) => applications.find((application) => application.id === id))
+      .filter(Boolean),
+    [compareIds, applications]
+  );
 
   const scheduleInterview = async (event) => {
     event.preventDefault();
@@ -485,14 +527,34 @@ const Applicants = () => {
                 </div>
 
                 <div className="px-6 py-6">
-                  <div className="mb-6 flex items-center justify-between">
+                  <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
                     <div>
                       <h2 className="text-2xl font-semibold text-slate-900">Recent Applications</h2>
                       <p className="mt-1 text-sm text-slate-500">
                         {selectedJob ? `${selectedJob.title}` : 'No active job selected'}
                       </p>
                     </div>
-                    <p className="text-sm font-medium text-slate-500">{filteredApplications.length} Total</p>
+                    <div className="flex items-center gap-3">
+                      <p className="text-sm font-medium text-slate-500">{filteredApplications.length} Total</p>
+                      <div className="flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 p-1" role="group" aria-label="Switch applicant view">
+                        <button
+                          type="button"
+                          onClick={() => setViewMode('list')}
+                          aria-pressed={viewMode === 'list'}
+                          className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition ${viewMode === 'list' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                        >
+                          <LayoutGrid size={14} /> List
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setViewMode('board')}
+                          aria-pressed={viewMode === 'board'}
+                          className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition ${viewMode === 'board' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                        >
+                          <Columns3 size={14} /> Board
+                        </button>
+                      </div>
+                    </div>
                   </div>
 
                   {!selectedJobId ? (
@@ -505,20 +567,46 @@ const Applicants = () => {
                     </div>
                   ) : filteredApplications.length === 0 ? (
                     <p className="text-sm text-slate-500">No applicants found. Update filters or select a different job.</p>
+                  ) : viewMode === 'board' ? (
+                    <KanbanBoard
+                      applications={filteredApplications}
+                      selectedApplicationId={selectedApplicationId}
+                      compareIds={compareIds}
+                      onSelect={setSelectedApplicationId}
+                      onToggleCompare={toggleCompare}
+                      onStatusChange={(application, nextStatus) => applyStatusUpdate(application, nextStatus)}
+                      updatingStatus={updatingStatus}
+                    />
                   ) : (
                     <div className="grid gap-5 md:grid-cols-2">
                       {filteredApplications.map((application) => (
-                        <button
+                        <div
                           key={application.id}
-                          type="button"
+                          role="button"
+                          tabIndex={0}
                           onClick={() => setSelectedApplicationId(application.id)}
-                          className={`rounded-[24px] border p-5 text-left shadow-sm transition ${
+                          onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setSelectedApplicationId(application.id); } }}
+                          className={`relative cursor-pointer rounded-[24px] border p-5 text-left shadow-sm transition ${
                             selectedApplicationId === application.id
                               ? 'border-blue-200 bg-blue-50/60'
                               : 'border-slate-200 bg-white hover:border-slate-300'
                           }`}
                         >
-                          <div className="flex items-start justify-between gap-4">
+                          <label
+                            className="absolute right-4 top-4 flex items-center gap-1.5 text-xs font-medium text-slate-500"
+                            onClick={(event) => event.stopPropagation()}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={compareIds.includes(application.id)}
+                              onChange={() => toggleCompare(application.id)}
+                              disabled={!compareIds.includes(application.id) && compareIds.length >= MAX_COMPARE}
+                              aria-label={`Select ${application.userName} for comparison`}
+                              className="h-4 w-4 accent-blue-600"
+                            />
+                            Compare
+                          </label>
+                          <div className="flex items-start justify-between gap-4 pr-16">
                             <div className="flex items-center gap-3">
                               <div className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-200 text-sm font-semibold text-slate-700">
                                 {getInitials(application.userName)}
@@ -532,6 +620,12 @@ const Applicants = () => {
                               <div className="text-right">
                                 <p className="text-xl font-semibold text-blue-600">{Math.round(application.assessmentScore)}%</p>
                                 <p className="text-xs uppercase tracking-[0.16em] text-slate-400">Score</p>
+                              </div>
+                            )}
+                            {application.matchScore != null && (
+                              <div className="text-right">
+                                <p className="text-xl font-semibold text-emerald-600">{application.matchScore}%</p>
+                                <p className="text-xs uppercase tracking-[0.16em] text-slate-400">Match</p>
                               </div>
                             )}
                           </div>
@@ -550,7 +644,7 @@ const Applicants = () => {
                               <span>{application.userLocation || 'Location not added'}</span>
                             </div>
                           </div>
-                        </button>
+                        </div>
                       ))}
                     </div>
                   )}
@@ -618,6 +712,26 @@ const Applicants = () => {
                       <DetailField label="Email" value={selectedApplication.userEmail || 'Not available'} />
                       <DetailField label="Phone" value={selectedApplication.userPhone || 'Not available'} />
                     </div>
+
+                    {selectedApplication.matchScore != null && (
+                      <div className="mt-6 rounded-[24px] border border-emerald-100 bg-emerald-50/70 p-5">
+                        <div className="flex items-center justify-between gap-3">
+                          <p className="text-sm font-semibold uppercase tracking-[0.14em] text-emerald-700">Candidate match</p>
+                          <p className="text-2xl font-semibold text-emerald-900">{selectedApplication.matchScore}%</p>
+                        </div>
+                        <p className="mt-2 text-sm text-emerald-800">
+                          {selectedApplication.matchingSkills?.length || 0} required skills matched
+                          {selectedApplication.missingSkills?.length > 0 ? `; missing ${selectedApplication.missingSkills.join(', ')}` : '.'}
+                        </p>
+                        <div className="mt-4 grid grid-cols-2 gap-2 text-xs text-emerald-800 sm:grid-cols-5">
+                          <span>Skills {selectedApplication.skillsScore ?? 0}/50</span>
+                          <span>Experience {selectedApplication.experienceScore ?? 0}/20</span>
+                          <span>Location {selectedApplication.locationScore ?? 0}/10</span>
+                          <span>Preferences {selectedApplication.preferenceScore ?? 0}/15</span>
+                          <span>Profile {selectedApplication.profileScore ?? 0}/5</span>
+                        </div>
+                      </div>
+                    )}
 
                     <div className="mt-6 rounded-[24px] border border-slate-200 p-5">
                       <div className="mb-4 flex items-center justify-between">
@@ -765,6 +879,27 @@ const Applicants = () => {
           </div>
         </section>
       </div>
+      {compareIds.length > 0 && (
+        <div className="fixed inset-x-0 bottom-6 z-40 flex justify-center px-4">
+          <div className="flex items-center gap-4 rounded-full border border-slate-200 bg-slate-950 px-6 py-3 text-white shadow-2xl">
+            <span className="text-sm font-medium">{compareIds.length} candidate{compareIds.length === 1 ? '' : 's'} selected</span>
+            <Button
+              type="button"
+              className="!h-9 !px-4 !text-sm"
+              disabled={compareIds.length < 2}
+              onClick={() => setCompareOpen(true)}
+            >
+              <GitCompare size={15} /> Compare
+            </Button>
+            <button type="button" onClick={() => setCompareIds([])} className="text-xs font-medium text-slate-300 hover:text-white">
+              Clear
+            </button>
+          </div>
+        </div>
+      )}
+      {compareOpen && (
+        <CompareDialog applications={compareApplications} onClose={() => setCompareOpen(false)} />
+      )}
       {interviewModalOpen && selectedApplication && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 px-4 backdrop-blur-sm">
           <div className="w-full max-w-2xl overflow-hidden rounded-[28px] bg-white shadow-2xl">
@@ -884,6 +1019,130 @@ const Applicants = () => {
           </div>
         </div>
       )}
+    </div>
+  );
+};
+
+const KanbanBoard = ({ applications, selectedApplicationId, compareIds, onSelect, onToggleCompare, onStatusChange, updatingStatus }) => {
+  return (
+    <div className="flex gap-4 overflow-x-auto pb-2">
+      {kanbanColumns.map((column) => {
+        const items = applications.filter((application) => application.status === column.key);
+        return (
+          <div key={column.key} className="flex w-72 flex-shrink-0 flex-col rounded-[20px] bg-slate-50 p-3">
+            <div className="mb-3 flex items-center justify-between px-1">
+              <p className="text-sm font-semibold text-slate-700">{column.label}</p>
+              <span className="rounded-full bg-white px-2 py-0.5 text-xs font-medium text-slate-500 shadow-sm">{items.length}</span>
+            </div>
+            <div className="flex flex-col gap-3">
+              {items.length === 0 ? (
+                <p className="rounded-2xl border border-dashed border-slate-200 p-4 text-center text-xs text-slate-400">No candidates</p>
+              ) : items.map((application) => (
+                <div
+                  key={application.id}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => onSelect(application.id)}
+                  onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onSelect(application.id); } }}
+                  className={`cursor-pointer rounded-2xl border bg-white p-4 text-left shadow-sm transition ${selectedApplicationId === application.id ? 'border-blue-300 ring-1 ring-blue-200' : 'border-slate-200 hover:border-slate-300'}`}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="text-sm font-semibold text-slate-900">{application.userName}</p>
+                    <label className="flex items-center" onClick={(event) => event.stopPropagation()}>
+                      <input
+                        type="checkbox"
+                        checked={compareIds.includes(application.id)}
+                        onChange={() => onToggleCompare(application.id)}
+                        disabled={!compareIds.includes(application.id) && compareIds.length >= MAX_COMPARE}
+                        aria-label={`Select ${application.userName} for comparison`}
+                        className="h-3.5 w-3.5 accent-blue-600"
+                      />
+                    </label>
+                  </div>
+                  <p className="mt-1 truncate text-xs text-slate-500">{application.userHeadline || application.jobTitle}</p>
+                  <div className="mt-2 flex items-center gap-2 text-xs">
+                    {application.matchScore != null && (
+                      <span className="rounded-full bg-emerald-50 px-2 py-0.5 font-medium text-emerald-700">{application.matchScore}% match</span>
+                    )}
+                    {application.assessmentScore != null && (
+                      <span className="rounded-full bg-blue-50 px-2 py-0.5 font-medium text-blue-700">{Math.round(application.assessmentScore)}% score</span>
+                    )}
+                  </div>
+                  <select
+                    value={application.status}
+                    disabled={updatingStatus}
+                    onClick={(event) => event.stopPropagation()}
+                    onChange={(event) => onStatusChange(application, event.target.value)}
+                    className="mt-3 w-full rounded-xl border border-slate-200 bg-slate-50 px-2 py-1.5 text-xs text-slate-600"
+                  >
+                    {kanbanColumns.map((option) => (
+                      <option key={option.key} value={option.key}>Move to: {option.label}</option>
+                    ))}
+                  </select>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
+const CompareDialog = ({ applications, onClose }) => {
+  const rows = [
+    { label: 'Match score', render: (app) => app.matchScore != null ? `${app.matchScore}%` : 'Not available' },
+    { label: 'Matching skills', render: (app) => app.matchingSkills?.length ? app.matchingSkills.join(', ') : 'None recorded' },
+    { label: 'Missing skills', render: (app) => app.missingSkills?.length ? app.missingSkills.join(', ') : 'None' },
+    { label: 'Experience score', render: (app) => app.experienceScore != null ? `${app.experienceScore}/20` : 'Not available' },
+    { label: 'Location score', render: (app) => app.locationScore != null ? `${app.locationScore}/10` : 'Not available' },
+    { label: 'Assessment score', render: (app) => app.assessmentScore != null ? `${Math.round(app.assessmentScore)}%` : 'No result yet' },
+    { label: 'Application status', render: (app) => formatStatusLabel(app.status) },
+    { label: 'Applied', render: (app) => formatRelative(app.createdAt) },
+  ];
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 px-4 backdrop-blur-sm">
+      <div className="max-h-[85vh] w-full max-w-4xl overflow-hidden rounded-[28px] bg-white shadow-2xl">
+        <div className="flex items-center justify-between border-b border-slate-200 px-6 py-5">
+          <h2 className="text-xl font-semibold text-slate-900">Compare candidates</h2>
+          <button type="button" onClick={onClose} aria-label="Close comparison" className="rounded-full p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600">
+            <X size={18} />
+          </button>
+        </div>
+        <div className="overflow-auto p-6" style={{ maxHeight: 'calc(85vh - 76px)' }}>
+          <table className="w-full min-w-[560px] border-collapse text-left text-sm">
+            <thead>
+              <tr>
+                <th className="w-40 pb-4 pr-4 text-xs font-semibold uppercase tracking-[0.12em] text-slate-400">Candidate</th>
+                {applications.map((application) => (
+                  <th key={application.id} className="pb-4 pr-4">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-200 text-xs font-semibold text-slate-700">
+                        {getInitials(application.userName)}
+                      </div>
+                      <div>
+                        <p className="font-semibold text-slate-900">{application.userName}</p>
+                        <p className="text-xs font-normal text-slate-500">{application.userHeadline || application.jobTitle}</p>
+                      </div>
+                    </div>
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row) => (
+                <tr key={row.label} className="border-t border-slate-100">
+                  <td className="py-3 pr-4 text-xs font-semibold uppercase tracking-[0.1em] text-slate-400">{row.label}</td>
+                  {applications.map((application) => (
+                    <td key={application.id} className="py-3 pr-4 text-slate-700">{row.render(application)}</td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   );
 };

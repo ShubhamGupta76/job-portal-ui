@@ -1,5 +1,6 @@
 import { createContext, useState } from 'react';
 import { normalizeUserRole } from '../utils';
+import { authService } from '../services/authService';
 
 /**
  * Auth Context for global authentication state
@@ -16,7 +17,7 @@ const getRoleFromToken = (token) => {
     const normalizedPayload = payload.replace(/-/g, '+').replace(/_/g, '/');
     const decoded = JSON.parse(window.atob(normalizedPayload));
     return normalizeUserRole(decoded?.role);
-  } catch (error) {
+  } catch {
     return null;
   }
 };
@@ -33,14 +34,21 @@ export const AuthProvider = ({ children }) => {
     const normalizedRole = getRoleFromToken(token) || normalizeUserRole(role);
     localStorage.setItem('authToken', token);
     localStorage.setItem('userRole', normalizedRole);
+    if (userData?.refreshToken) {
+      localStorage.setItem('refreshToken', userData.refreshToken);
+    }
+    if (userData?.sessionId != null) {
+      localStorage.setItem('sessionId', String(userData.sessionId));
+    }
     setUser(userData);
     setIsLoggedIn(true);
     setUserRole(normalizedRole);
   };
 
   const logout = () => {
-    localStorage.removeItem('authToken');
-    localStorage.removeItem('userRole');
+    // authService.logout() clears local storage synchronously and best-effort revokes the
+    // session server-side; local logout must succeed even if that network call fails.
+    authService.logout().catch(() => {});
     setUser(null);
     setIsLoggedIn(false);
     setUserRole(null);

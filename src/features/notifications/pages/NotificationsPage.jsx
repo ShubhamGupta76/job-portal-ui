@@ -1,16 +1,24 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { Bell, CheckCheck, Clock3, Inbox, Search } from 'lucide-react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { Bell, CheckCheck, Clock3, Inbox, Search, Settings } from 'lucide-react';
 import Button from '../../../components/common/Button';
 import Badge from '../../../components/common/Badge';
 import Input from '../../../components/common/Input';
 import { notificationService } from '../../../services';
+import { useNotificationRealtime } from '../../../hooks/useNotificationRealtime';
 
 const NotificationsPage = () => {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [filter, setFilter] = useState('ALL');
+  const [category, setCategory] = useState('ALL');
   const [search, setSearch] = useState('');
+
+  const handleRealtimeNotification = useCallback((notification) => {
+    setNotifications((current) => [notification, ...current.filter((item) => item.id !== notification.id)]);
+  }, []);
+  const realtimeStatus = useNotificationRealtime({ enabled: true, onNotification: handleRealtimeNotification });
 
   useEffect(() => {
     const loadNotifications = async () => {
@@ -27,6 +35,8 @@ const NotificationsPage = () => {
     };
 
     loadNotifications();
+    const poll = window.setInterval(loadNotifications, 30000);
+    return () => window.clearInterval(poll);
   }, []);
 
   const unreadCount = useMemo(
@@ -38,12 +48,13 @@ const NotificationsPage = () => {
     const query = search.trim().toLowerCase();
     return notifications.filter((notification) => {
       const matchesFilter = filter === 'ALL' || (filter === 'UNREAD' ? !notification.read : notification.read);
+      const matchesCategory = category === 'ALL' || notificationCategory(notification.type) === category;
       const matchesSearch = !query || [notification.title, notification.message, notification.type]
         .filter(Boolean)
         .some((value) => String(value).toLowerCase().includes(query));
-      return matchesFilter && matchesSearch;
+      return matchesFilter && matchesCategory && matchesSearch;
     });
-  }, [filter, notifications, search]);
+  }, [category, filter, notifications, search]);
 
   const handleMarkAsRead = async (notificationId) => {
     try {
@@ -81,6 +92,12 @@ const NotificationsPage = () => {
                   <p className="text-sm font-semibold uppercase tracking-[0.22em] text-slate-400">Inbox</p>
                   <h1 className="text-4xl font-semibold tracking-tight text-white">Notifications</h1>
                 </div>
+                <Link
+                  to="/settings/notifications"
+                  className="ml-auto flex items-center gap-1.5 rounded-full border border-white/15 px-4 py-2 text-sm font-medium text-slate-200 hover:bg-white/10"
+                >
+                  <Settings size={14} /> Notification settings
+                </Link>
               </div>
               <p className="mt-5 max-w-2xl text-base leading-7 text-slate-300">
                 Track application updates, assessment assignments, recruiter actions, and system alerts in one focused workspace.
@@ -90,6 +107,14 @@ const NotificationsPage = () => {
                 <FilterButton active={filter === 'UNREAD'} onClick={() => setFilter('UNREAD')}>Unread</FilterButton>
                 <FilterButton active={filter === 'READ'} onClick={() => setFilter('READ')}>Read</FilterButton>
               </div>
+              <div className="mt-4 flex flex-wrap gap-2">
+                {['ALL', 'APPLICATIONS', 'MESSAGES', 'INTERVIEWS', 'ASSESSMENTS', 'JOBS'].map((item) => (
+                  <button key={item} type="button" onClick={() => setCategory(item)} className={`rounded-full px-3 py-1.5 text-xs font-semibold ${category === item ? 'bg-blue-500 text-white' : 'bg-white/10 text-slate-300'}`}>
+                    {formatCategory(item)}
+                  </button>
+                ))}
+              </div>
+              <p className="mt-4 text-xs text-slate-400">Realtime: {realtimeStatus === 'connected' ? 'Connected' : realtimeStatus === 'reconnecting' ? 'Reconnecting; polling remains active' : 'Polling fallback active'}</p>
             </div>
 
             <div className="bg-[#edf4ff] p-6 md:p-8">
@@ -219,5 +244,16 @@ const formatNotificationDate = (value) => {
     minute: '2-digit',
   });
 };
+
+const notificationCategory = (type) => {
+  const normalized = String(type || '').toUpperCase();
+  if (normalized.includes('MESSAGE')) return 'MESSAGES';
+  if (normalized.includes('INTERVIEW')) return 'INTERVIEWS';
+  if (normalized.includes('ASSESSMENT')) return 'ASSESSMENTS';
+  if (normalized.includes('JOB') || normalized.includes('ALERT')) return 'JOBS';
+  return 'APPLICATIONS';
+};
+
+const formatCategory = (value) => value.charAt(0) + value.slice(1).toLowerCase();
 
 export default NotificationsPage;

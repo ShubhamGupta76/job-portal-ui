@@ -4,6 +4,14 @@ import Card from '../../../components/common/Card';
 import Button from '../../../components/common/Button';
 import Input from '../../../components/common/Input';
 import { authService } from '../../../services/authService';
+import { useAuthContext } from '../../../context/useAuthContext';
+import { normalizeUserRole } from '../../../utils';
+
+const ROLE_REDIRECTS = {
+  admin: '/admin/dashboard',
+  recruiter: '/recruiter/dashboard',
+  candidate: '/dashboard',
+};
 
 const LoginPage = () => {
   const [formData, setFormData] = useState({
@@ -13,6 +21,7 @@ const LoginPage = () => {
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const { login } = useAuthContext();
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -58,12 +67,18 @@ const LoginPage = () => {
     setLoading(true);
     try {
       const email = formData.email.trim();
-      const response = await authService.sendOtpForLogin(email, formData.password.trim());
-      if (response.data.success) {
-        navigate('/otp-verify', { state: { email, isLogin: true } });
-      } else {
+      const response = await authService.login(email, formData.password.trim());
+      const authData = response.data?.data || {};
+      const token = authData.token;
+
+      if (!response.data.success || !token) {
         setErrors({ general: response.data.message || 'Login failed. Please check credentials.' });
+        return;
       }
+
+      const normalizedRole = normalizeUserRole(authData.role);
+      login(authData, token, normalizedRole);
+      navigate(ROLE_REDIRECTS[normalizedRole] || '/dashboard', { replace: true });
     } catch (error) {
       console.error('Login error:', error);
       setErrors({ general: error.response?.data?.message || 'Invalid credentials. Please check email and password.' });
@@ -81,7 +96,7 @@ const LoginPage = () => {
             Sign in to continue your hiring workflow without changing the backend flow.
           </h1>
           <p className="mt-5 max-w-xl text-slate-700">
-            Candidates can track opportunities and recruiters can return to their hiring workspace. Your current OTP-based backend process remains unchanged.
+            Candidates can track opportunities and recruiters can return to their hiring workspace.
           </p>
           <div className="mt-10 grid gap-4 sm:grid-cols-3">
             {[
@@ -103,7 +118,7 @@ const LoginPage = () => {
               JP
             </div>
             <h2 className="mt-6 text-3xl font-semibold text-slate-950">Login to JobPortal</h2>
-            <p className="mt-2 text-sm text-slate-500">Use your registered email and password to receive the OTP verification code.</p>
+            <p className="mt-2 text-sm text-slate-500">Use your registered email and password to sign in.</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-5">
@@ -142,11 +157,10 @@ const LoginPage = () => {
                 <input type="checkbox" className="h-4 w-4 rounded accent-blue-600" />
                 <span>Remember me</span>
               </label>
-              <span className="font-medium text-blue-700">OTP-secured login</span>
             </div>
 
             <Button type="submit" loading={loading} className="w-full">
-              Continue to OTP
+              Log In
             </Button>
           </form>
 

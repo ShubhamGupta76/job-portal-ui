@@ -8,7 +8,9 @@ export const recruiterMenuItems = [
   { label: 'Applicants', path: '/recruiter/applicants' },
   { label: 'Assessments', path: '/recruiter/assessments' },
   { label: 'Company Profile', path: '/recruiter/company-profile' },
+  { label: 'Team', path: '/recruiter/team' },
   { label: 'Analytics', path: '/recruiter/analytics' },
+  { label: 'Billing', path: '/recruiter/billing' },
 ];
 
 const Sidebar = () => {

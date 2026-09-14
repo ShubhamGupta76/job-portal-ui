@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import Editor from '@monaco-editor/react';
-import { motion } from 'framer-motion';
 import { CheckCircle2, Code2, Maximize2, Minimize2, Play, Send, Settings2, XCircle } from 'lucide-react';
 import { assessmentService } from '../../../services';
 

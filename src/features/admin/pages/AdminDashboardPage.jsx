@@ -216,6 +216,14 @@ const AdminDashboardPage = () => {
             </div>
 
             <div className="flex flex-wrap gap-3">
+              <Button type="button" variant="outline" onClick={() => navigate('/admin/company-verifications')}>
+                <ShieldCheck size={16} aria-hidden="true" />
+                Company verifications
+              </Button>
+              <Button type="button" variant="outline" onClick={() => navigate('/admin/reports')}>
+                <AlertTriangle size={16} aria-hidden="true" />
+                Reports
+              </Button>
               <Button type="button" variant="outline" onClick={handleRefresh} loading={refreshing}>
                 <RefreshCw size={16} aria-hidden="true" />
                 Refresh

@@ -14,4 +14,10 @@ export const adminService = {
   blockUser: (userId) => apiClient.patch(`/admin/users/${userId}/block`),
   unblockUser: (userId) => apiClient.patch(`/admin/users/${userId}/unblock`),
   deleteUser: (userId) => apiClient.delete(`/admin/users/${userId}`),
+  getVerificationQueue: (status = 'ALL', page = 0, size = 20) =>
+    apiClient.get('/admin/company-verifications', { params: { status, page, size } }),
+  getVerificationDetail: (id) => apiClient.get(`/admin/company-verifications/${id}`),
+  approveVerification: (id, note) => apiClient.post(`/admin/company-verifications/${id}/approve`, { note }),
+  rejectVerification: (id, note) => apiClient.post(`/admin/company-verifications/${id}/reject`, { note }),
+  requestVerificationInfo: (id, note) => apiClient.post(`/admin/company-verifications/${id}/request-info`, { note }),
 };

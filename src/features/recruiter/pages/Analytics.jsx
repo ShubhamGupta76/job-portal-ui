@@ -12,7 +12,8 @@ const rangeOptions = [
   { key: '7D', label: '7D', days: 7 },
   { key: '30D', label: '30D', days: 30 },
   { key: '90D', label: '90D', days: 90 },
-  { key: 'ALL', label: 'All', days: null },
+  { key: 'ALL', label: 'All', days: 365 },
+  { key: 'CUSTOM', label: 'Custom', days: null },
 ];
 
 const Analytics = () => {
@@ -24,8 +25,21 @@ const Analytics = () => {
   const [applications, setApplications] = useState([]);
   const [search, setSearch] = useState('');
   const [range, setRange] = useState('90D');
+  const [customDays, setCustomDays] = useState(90);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [analytics, setAnalytics] = useState(null);
+  const [analyticsLoading, setAnalyticsLoading] = useState(true);
+  const [analyticsError, setAnalyticsError] = useState('');
+  const [isRecruiter, setIsRecruiter] = useState(false);
+
+  const days = useMemo(() => {
+    const selected = rangeOptions.find((option) => option.key === range);
+    if (range === 'CUSTOM') {
+      return Math.min(365, Math.max(1, Number(customDays) || 90));
+    }
+    return selected?.days ?? 90;
+  }, [range, customDays]);
 
   useEffect(() => {
     let ignore = false;
@@ -47,6 +61,8 @@ const Analytics = () => {
           navigate('/login', { replace: true });
           return;
         }
+
+        setIsRecruiter(true);
 
         const [dashboardRes, jobsRes, applicationsRes] = await Promise.allSettled([
           dashboardService.getRecruiterDashboard(),
@@ -96,6 +112,36 @@ const Analytics = () => {
     };
   }, [logout, navigate, userRole]);
 
+  useEffect(() => {
+    if (!isRecruiter) return undefined;
+    let ignore = false;
+
+    const loadAnalytics = async () => {
+      setAnalyticsLoading(true);
+      setAnalyticsError('');
+      try {
+        const response = await dashboardService.getRecruiterAnalytics(days);
+        if (!ignore) {
+          setAnalytics(response.data?.data || null);
+        }
+      } catch (err) {
+        if (!ignore) {
+          setAnalyticsError(err.response?.data?.message || 'Unable to load recruiter analytics.');
+        }
+      } finally {
+        if (!ignore) {
+          setAnalyticsLoading(false);
+        }
+      }
+    };
+
+    loadAnalytics();
+
+    return () => {
+      ignore = true;
+    };
+  }, [isRecruiter, days]);
+
   const fullName = useMemo(() => {
     const parts = [viewer?.firstName || '', viewer?.lastName || ''].filter(Boolean);
     return parts.join(' ') || viewer?.email || 'Recruiter User';
@@ -111,12 +157,11 @@ const Analytics = () => {
   }, [fullName]);
 
   const cutoffDate = useMemo(() => {
-    const selectedRange = rangeOptions.find((option) => option.key === range);
-    if (!selectedRange?.days) return null;
+    if (range === 'ALL') return null;
     const date = new Date();
-    date.setDate(date.getDate() - selectedRange.days);
+    date.setDate(date.getDate() - days);
     return date;
-  }, [range]);
+  }, [range, days]);
 
   const filteredJobs = useMemo(() => {
     return jobs.filter((job) => {
@@ -148,11 +193,15 @@ const Analytics = () => {
   }, [applications, search, cutoffDate]);
 
   const activeJobs = filteredJobs.filter((job) => (job.status || 'ACTIVE').toUpperCase() !== 'CLOSED');
-  const totalApplicants = filteredApplications.length;
   const avgTimeToHire = dashboard?.averageTimeToHireDays ?? 0;
-  const assessmentScores = filteredApplications.filter((application) => application.assessmentScore != null);
-  const candidateQuality = assessmentScores.length
-    ? (assessmentScores.reduce((sum, application) => sum + application.assessmentScore, 0) / assessmentScores.length) / 20
+
+  const totalApplicants = analytics?.applications ?? filteredApplications.length;
+  const activeJobsCount = analytics?.activeJobs ?? activeJobs.length;
+  const shortlistedCount = analytics?.shortlisted ?? 0;
+  const interviewsCount = analytics?.interviews ?? 0;
+  const hiresCount = analytics?.hires ?? 0;
+  const assessmentCompletionRate = analytics?.assessmentsAssigned
+    ? Math.round((analytics.assessmentsCompleted / analytics.assessmentsAssigned) * 100)
     : 0;
 
   const trendData = useMemo(() => {
@@ -184,6 +233,13 @@ const Analytics = () => {
   );
 
   const statusBreakdown = useMemo(() => {
+    if (analytics?.funnel) {
+      return Object.entries(analytics.funnel)
+        .map(([status, count]) => ({ status, count }))
+        .filter((item) => item.count > 0)
+        .sort((first, second) => second.count - first.count);
+    }
+
     const counts = filteredApplications.reduce((acc, application) => {
       const key = (application.status || 'APPLIED').toUpperCase();
       acc[key] = (acc[key] || 0) + 1;
@@ -193,7 +249,7 @@ const Analytics = () => {
     return Object.entries(counts)
       .map(([status, count]) => ({ status, count }))
       .sort((first, second) => second.count - first.count);
-  }, [filteredApplications]);
+  }, [filteredApplications, analytics]);
 
   const categoryPerformance = useMemo(() => {
     const grouped = activeJobs.reduce((acc, job) => {
@@ -219,9 +275,9 @@ const Analytics = () => {
   }, [filteredApplications]);
 
   const insightMetrics = {
-    hiringTargetMet: totalApplicants ? Math.round(((dashboard?.shortlistedCount ?? 0) / totalApplicants) * 100) : 0,
-    interviewsScheduled: filteredApplications.filter((application) => application.status === 'INTERVIEW').length,
-    activeOffers: filteredApplications.filter((application) => application.status === 'HIRED').length,
+    hiringTargetMet: totalApplicants ? Math.round((shortlistedCount / totalApplicants) * 100) : 0,
+    interviewsScheduled: interviewsCount,
+    activeOffers: hiresCount,
   };
 
   const handleLogout = () => {
@@ -232,10 +288,13 @@ const Analytics = () => {
   const exportReport = () => {
     const rows = [
       ['Metric', 'Value'],
-      ['Active Jobs', activeJobs.length],
+      ['Active Jobs', activeJobsCount],
       ['Total Applicants', totalApplicants],
+      ['Shortlisted', shortlistedCount],
+      ['Interviews', interviewsCount],
+      ['Hires', hiresCount],
       ['Average Time To Hire', avgTimeToHire],
-      ['Candidate Quality', candidateQuality.toFixed(2)],
+      ['Assessment Completion Rate', `${assessmentCompletionRate}%`],
       ['Top Candidate', topTalent[0]?.userName || 'N/A'],
     ];
 
@@ -339,6 +398,11 @@ const Analytics = () => {
               {error}
             </div>
           )}
+          {analyticsError && (
+            <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+              {analyticsError} Showing locally computed figures where available.
+            </div>
+          )}
 
           <div className="mb-8 flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
             <div>
@@ -347,7 +411,7 @@ const Analytics = () => {
                 Comprehensive performance reporting for your talent pipeline.
               </p>
             </div>
-            <div className="flex flex-wrap gap-3">
+            <div className="flex flex-wrap items-center gap-3">
               <div className="flex overflow-hidden rounded-2xl border border-slate-200 bg-white">
                 {rangeOptions.map((option) => (
                   <button
@@ -362,16 +426,45 @@ const Analytics = () => {
                   </button>
                 ))}
               </div>
-              <Button variant="outline" className="bg-white">Date Range</Button>
+              {range === 'CUSTOM' && (
+                <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2">
+                  <input
+                    type="number"
+                    min={1}
+                    max={365}
+                    value={customDays}
+                    onChange={(event) => setCustomDays(event.target.value)}
+                    className="w-16 text-sm outline-none"
+                    aria-label="Custom number of days"
+                  />
+                  <span className="text-sm text-slate-500">days</span>
+                </div>
+              )}
               <Button onClick={exportReport}>Export Report</Button>
             </div>
           </div>
 
           <div className="grid grid-cols-1 gap-6 xl:grid-cols-4">
-            <MetricCard title="Active Jobs" value={activeJobs.length} subtitle={`${dashboard?.openPositions ?? 0} recruiter openings overall`} />
-            <MetricCard title="Total Applicants" value={totalApplicants} subtitle={`${dashboard?.totalApplicants ?? 0} in recruiter history`} />
-            <MetricCard title="Avg. Time to Hire" value={`${avgTimeToHire} Days`} subtitle="Current recruiter cycle average" />
-            <MetricCard title="Candidate Quality" value={`${candidateQuality.toFixed(1)}/5`} subtitle={`${assessmentScores.length} scored profiles`} />
+            <MetricCard
+              title="Active Jobs"
+              value={analyticsLoading ? '...' : activeJobsCount}
+              subtitle={`${analytics?.jobsPosted ?? 0} posted in last ${days}d`}
+            />
+            <MetricCard
+              title="Applications"
+              value={analyticsLoading ? '...' : totalApplicants}
+              subtitle={`${analytics?.applicationsThisWeek ?? 0} this week`}
+            />
+            <MetricCard
+              title="Shortlisted"
+              value={analyticsLoading ? '...' : shortlistedCount}
+              subtitle={`${interviewsCount} interviews - ${hiresCount} hires`}
+            />
+            <MetricCard
+              title="Assessment Completion"
+              value={analyticsLoading ? '...' : `${assessmentCompletionRate}%`}
+              subtitle={`${analytics?.assessmentsCompleted ?? 0}/${analytics?.assessmentsAssigned ?? 0} completed - ${avgTimeToHire}d avg. time to hire`}
+            />
           </div>
 
           <div className="mt-8 grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
@@ -435,14 +528,29 @@ const Analytics = () => {
               </div>
             </div>
 
-            <div className="rounded-[28px] border border-dashed border-slate-200 bg-white p-6 shadow-sm">
-              <div className="flex h-full flex-col items-center justify-center text-center">
-                <div className="flex h-16 w-16 items-center justify-center rounded-full bg-slate-50 text-2xl text-slate-400">+</div>
-                <h3 className="mt-6 text-3xl font-semibold text-slate-900">Add Custom Widget</h3>
-                <p className="mt-3 text-sm leading-7 text-slate-500">
-                  Configure a new data visualization for your dashboard.
-                </p>
-                <Button variant="outline" className="mt-6 bg-white">Configure Widget</Button>
+            <div className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
+              <h2 className="text-3xl font-semibold text-slate-900">Assessment Performance</h2>
+              <p className="mt-2 text-sm text-slate-500">Assigned vs. completed assessments in the selected period.</p>
+              <div className="mt-8 space-y-5">
+                <div>
+                  <div className="mb-2 flex items-center justify-between text-sm text-slate-500">
+                    <span>Completion rate</span>
+                    <span className="font-semibold text-slate-800">{assessmentCompletionRate}%</span>
+                  </div>
+                  <div className="h-3 rounded-full bg-slate-100">
+                    <div className="h-3 rounded-full bg-blue-600" style={{ width: `${Math.min(100, assessmentCompletionRate)}%` }} />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4 text-center">
+                  <div className="rounded-2xl bg-slate-50 p-4">
+                    <p className="text-2xl font-semibold text-slate-900">{analytics?.assessmentsAssigned ?? 0}</p>
+                    <p className="mt-1 text-xs font-medium uppercase tracking-[0.1em] text-slate-500">Assigned</p>
+                  </div>
+                  <div className="rounded-2xl bg-slate-50 p-4">
+                    <p className="text-2xl font-semibold text-slate-900">{analytics?.assessmentsCompleted ?? 0}</p>
+                    <p className="mt-1 text-xs font-medium uppercase tracking-[0.1em] text-slate-500">Completed</p>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -603,20 +711,21 @@ const Legend = ({ color, label }) => (
 const DonutChart = ({ items }) => {
   const total = items.reduce((sum, item) => sum + item.count, 0);
   const colors = ['#ef7b5a', '#2aa198', '#1f4b5f', '#f2c14e', '#f4a261', '#7c93ff'];
-  let cumulative = 0;
 
-  const circles = items.map((item, index) => {
+  const circles = items.reduce((accumulated, item, index) => {
+    const previous = accumulated[index - 1];
+    const cumulative = previous ? previous.cumulative + previous.percentage : 0;
     const percentage = total ? item.count / total : 0;
-    const dash = percentage * 314;
-    const offset = -cumulative * 314;
-    cumulative += percentage;
-    return {
+    accumulated.push({
       ...item,
       color: colors[index % colors.length],
-      dash,
-      offset,
-    };
-  });
+      dash: percentage * 314,
+      offset: -cumulative * 314,
+      percentage,
+      cumulative,
+    });
+    return accumulated;
+  }, []);
 
   return (
     <div className="flex flex-col items-center gap-8">
