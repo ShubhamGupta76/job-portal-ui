@@ -2,8 +2,11 @@ import { useEffect, useRef, useState } from 'react';
 
 const getSocketUrl = () => {
   if (import.meta.env.VITE_NOTIFICATION_WS_URL) return import.meta.env.VITE_NOTIFICATION_WS_URL;
-  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  return `${protocol}//${window.location.host}/ws-native`;
+  const apiBase = import.meta.env.VITE_API_BASE_URL || '/api/v1';
+  const socketBase = apiBase.startsWith('http')
+    ? apiBase.replace('/api/v1', '').replace(/^http/, 'ws')
+    : `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}`;
+  return `${socketBase}/ws-native`;
 };
 
 export const useNotificationRealtime = ({ enabled, onNotification }) => {
